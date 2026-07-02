@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/skip2/go-qrcode"
 
 	"maunium.net/go/mautrix"
@@ -37,20 +37,20 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
-	"go.mau.fi/mautrix-discord/remoteauth"
+	"go.mau.fi/mautrix-fluxer/database"
+	"go.mau.fi/mautrix-fluxer/handoff"
 )
 
 type WrappedCommandEvent struct {
 	*commands.Event
-	Bridge *DiscordBridge
+	Bridge *FluxerBridge
 	User   *User
 	Portal *Portal
 }
 
 var HelpSectionPortalManagement = commands.HelpSection{Name: "Portal management", Order: 20}
 
-func (br *DiscordBridge) RegisterCommands() {
+func (br *FluxerBridge) RegisterCommands() {
 	proc := br.CommandProcessor.(*commands.Processor)
 	proc.AddHandlers(
 		cmdLoginToken,
@@ -80,7 +80,7 @@ func wrapCommand(handler func(*WrappedCommandEvent)) func(*commands.Event) {
 		if ce.Portal != nil {
 			portal = ce.Portal.(*Portal)
 		}
-		br := ce.Bridge.Child.(*DiscordBridge)
+		br := ce.Bridge.Child.(*FluxerBridge)
 		handler(&WrappedCommandEvent{ce, br, user, portal})
 	}
 }
@@ -90,12 +90,12 @@ var cmdLoginToken = &commands.FullHandler{
 	Name: "login-token",
 	Help: commands.HelpMeta{
 		Section:     commands.HelpSectionAuth,
-		Description: "Link the bridge to your Discord account by extracting the access token manually.",
+		Description: "Link the bridge to your Fluxer account by extracting the access token manually.",
 		Args:        "<user/bot/oauth> <_token_>",
 	},
 }
 
-const discordTokenEpoch = 1293840000
+const fluxerTokenEpoch = 1293840000
 
 func decodeToken(token string) (userID int64, err error) {
 	parts := strings.Split(token, ".")
@@ -155,9 +155,9 @@ func fnLoginToken(ce *WrappedCommandEvent) {
 		ce.Reply("Token type must be `user`, `bot` or `oauth`")
 		return
 	}
-	ce.Reply("Connecting to Discord as user ID %d", userID)
+	ce.Reply("Connecting to Fluxer as user ID %d", userID)
 	if err = ce.User.Login(token); err != nil {
-		ce.Reply("Error connecting to Discord: %v", err)
+		ce.Reply("Error connecting to Fluxer: %v", err)
 		return
 	}
 	ce.Reply("Successfully logged in as @%s", ce.User.Session.State.User.Username)
@@ -169,7 +169,7 @@ var cmdLoginQR = &commands.FullHandler{
 	Aliases: []string{"login"},
 	Help: commands.HelpMeta{
 		Section:     commands.HelpSectionAuth,
-		Description: "Link the bridge to your Discord account by scanning a QR code.",
+		Description: "Link the bridge to your Fluxer account by scanning a QR code.",
 	},
 }
 
@@ -179,7 +179,7 @@ func fnLoginQR(ce *WrappedCommandEvent) {
 		return
 	}
 
-	client, err := remoteauth.New()
+	client, err := handoff.New()
 	if err != nil {
 		ce.Reply("Failed to prepare login: %v", err)
 		return
@@ -213,7 +213,7 @@ func fnLoginQR(ce *WrappedCommandEvent) {
 
 	user, err := client.Result()
 	if err != nil || len(user.Token) == 0 {
-		if restErr := (&discordgo.RESTError{}); errors.As(err, &restErr) &&
+		if restErr := (&fluxergo.RESTError{}); errors.As(err, &restErr) &&
 			restErr.Response.StatusCode == http.StatusBadRequest &&
 			bytes.Contains(restErr.ResponseBody, []byte("captcha-required")) {
 			ce.Reply("Error logging in: %v\n\nCAPTCHAs are currently not supported - use token login instead", err)
@@ -226,7 +226,7 @@ func fnLoginQR(ce *WrappedCommandEvent) {
 		return
 	}
 	ce.User.Lock()
-	ce.User.DiscordID = user.UserID
+	ce.User.FluxerID = user.UserID
 	ce.User.Update()
 	ce.User.Unlock()
 	ce.Reply("Successfully logged in as @%s", user.Username)
@@ -277,12 +277,12 @@ var cmdLogout = &commands.FullHandler{
 	Name: "logout",
 	Help: commands.HelpMeta{
 		Section:     commands.HelpSectionAuth,
-		Description: "Forget the stored Discord auth token.",
+		Description: "Forget the stored Fluxer auth token.",
 	},
 }
 
 func fnLogout(ce *WrappedCommandEvent) {
-	wasLoggedIn := ce.User.DiscordID != ""
+	wasLoggedIn := ce.User.FluxerID != ""
 	ce.User.Logout(false)
 	if wasLoggedIn {
 		ce.Reply("Logged out successfully.")
@@ -296,21 +296,21 @@ var cmdPing = &commands.FullHandler{
 	Name: "ping",
 	Help: commands.HelpMeta{
 		Section:     commands.HelpSectionAuth,
-		Description: "Check your connection to Discord",
+		Description: "Check your connection to Fluxer",
 	},
 }
 
 func fnPing(ce *WrappedCommandEvent) {
 	if ce.User.Session == nil {
-		if ce.User.DiscordToken == "" {
+		if ce.User.FluxerToken == "" {
 			ce.Reply("You're not logged in")
 		} else {
-			ce.Reply("You have a Discord token stored, but are not connected for some reason 🤔")
+			ce.Reply("You have a Fluxer token stored, but are not connected for some reason 🤔")
 		}
 	} else if ce.User.wasDisconnected {
-		ce.Reply("You're logged in, but the Discord connection seems to be dead 💥")
+		ce.Reply("You're logged in, but the Fluxer connection seems to be dead 💥")
 	} else {
-		ce.Reply("You're logged in as @%s (`%s`)", ce.User.Session.State.User.Username, ce.User.DiscordID)
+		ce.Reply("You're logged in as @%s (`%s`)", ce.User.Session.State.User.Username, ce.User.FluxerID)
 	}
 }
 
@@ -319,7 +319,7 @@ var cmdDisconnect = &commands.FullHandler{
 	Name: "disconnect",
 	Help: commands.HelpMeta{
 		Section:     commands.HelpSectionAuth,
-		Description: "Disconnect from Discord (without logging out)",
+		Description: "Disconnect from Fluxer (without logging out)",
 	},
 	RequiresLogin: true,
 }
@@ -340,7 +340,7 @@ var cmdReconnect = &commands.FullHandler{
 	Aliases: []string{"connect"},
 	Help: commands.HelpMeta{
 		Section:     commands.HelpSectionAuth,
-		Description: "Reconnect to Discord after disconnecting",
+		Description: "Reconnect to Fluxer after disconnecting",
 	},
 	RequiresLogin: true,
 }
@@ -386,7 +386,7 @@ func fnRejoinSpace(ce *WrappedCommandEvent) {
 	}
 }
 
-var roomModerator = event.Type{Type: "fi.mau.discord.admin", Class: event.StateEventType}
+var roomModerator = event.Type{Type: "fi.mau.fluxer.admin", Class: event.StateEventType}
 
 var cmdSetRelay = &commands.FullHandler{
 	Func: wrapCommand(fnSetRelay),
@@ -400,7 +400,7 @@ var cmdSetRelay = &commands.FullHandler{
 	RequiresEventLevel: roomModerator,
 }
 
-const webhookURLFormat = "https://discord.com/api/webhooks/%d/%s"
+const webhookURLFormat = "https://fluxer.app/api/webhooks/%d/%s"
 
 const selectRelayHelp = "Usage: `$cmdprefix [room ID] <​--url URL> OR <​--create [name]>`"
 
@@ -446,7 +446,7 @@ func fnSetRelay(ce *WrappedCommandEvent) {
 		return
 	}
 	createType := strings.ToLower(strings.TrimLeft(ce.Args[0], "-"))
-	var webhookMeta *discordgo.Webhook
+	var webhookMeta *fluxergo.Webhook
 	switch createType {
 	case "url":
 		if len(ce.Args) < 2 {
@@ -469,12 +469,12 @@ func fnSetRelay(ce *WrappedCommandEvent) {
 			return
 		}
 	case "create":
-		perms, err := ce.User.Session.UserChannelPermissions(ce.User.DiscordID, portal.Key.ChannelID, portal.RefererOptIfUser(ce.User.Session, "")...)
+		perms, err := ce.User.Session.UserChannelPermissions(ce.User.FluxerID, portal.Key.ChannelID, portal.RefererOptIfUser(ce.User.Session, "")...)
 		if err != nil {
 			log.Warn().Err(err).Msg("Failed to check user permissions")
 			ce.Reply("Failed to check if you have permission to create webhooks")
 			return
-		} else if perms&discordgo.PermissionManageWebhooks == 0 {
+		} else if perms&fluxergo.PermissionManageWebhooks == 0 {
 			log.Debug().Int64("perms", perms).Msg("User doesn't have permissions to manage webhooks in channel")
 			ce.Reply("You don't have permission to manage webhooks in that channel")
 			return
@@ -514,7 +514,7 @@ var cmdUnsetRelay = &commands.FullHandler{
 	Name: "unset-relay",
 	Help: commands.HelpMeta{
 		Section:     HelpSectionPortalManagement,
-		Description: "Disable the relay webhook and optionally delete it on Discord",
+		Description: "Disable the relay webhook and optionally delete it on Fluxer",
 		Args:        "[--delete]",
 	},
 	RequiresPortal:     true,
@@ -590,7 +590,7 @@ func fnGuilds(ce *WrappedCommandEvent) {
 func fnListGuilds(ce *WrappedCommandEvent) {
 	var items []string
 	for _, userGuild := range ce.User.GetPortals() {
-		guild := ce.Bridge.GetGuildByID(userGuild.DiscordID, false)
+		guild := ce.Bridge.GetGuildByID(userGuild.FluxerID, false)
 		if guild == nil {
 			continue
 		}
@@ -662,7 +662,7 @@ var cmdBridge = &commands.FullHandler{
 	Name: "bridge",
 	Help: commands.HelpMeta{
 		Section:     HelpSectionPortalManagement,
-		Description: "Bridge this room to a specific Discord channel",
+		Description: "Bridge this room to a specific Fluxer channel",
 		Args:        "[--replace[=delete]] <_channel ID_>",
 	},
 	RequiresEventLevel: roomModerator,
@@ -781,7 +781,7 @@ var cmdUnbridge = &commands.FullHandler{
 	Name: "unbridge",
 	Help: commands.HelpMeta{
 		Section:     HelpSectionPortalManagement,
-		Description: "Unbridge this room from the linked Discord channel",
+		Description: "Unbridge this room from the linked Fluxer channel",
 	},
 	RequiresPortal:     true,
 	RequiresEventLevel: roomModerator,

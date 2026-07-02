@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -32,63 +32,63 @@ import (
 	"github.com/yuin/goldmark/util"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
-type astDiscordTag struct {
+type astFluxerTag struct {
 	ast.BaseInline
 	portal *Portal
 	id     int64
 }
 
-var _ ast.Node = (*astDiscordTag)(nil)
-var astKindDiscordTag = ast.NewNodeKind("DiscordTag")
+var _ ast.Node = (*astFluxerTag)(nil)
+var astKindFluxerTag = ast.NewNodeKind("FluxerTag")
 
-func (n *astDiscordTag) Dump(source []byte, level int) {
+func (n *astFluxerTag) Dump(source []byte, level int) {
 	ast.DumpHelper(n, source, level, nil, nil)
 }
 
-func (n *astDiscordTag) Kind() ast.NodeKind {
-	return astKindDiscordTag
+func (n *astFluxerTag) Kind() ast.NodeKind {
+	return astKindFluxerTag
 }
 
-type astDiscordUserMention struct {
-	astDiscordTag
+type astFluxerUserMention struct {
+	astFluxerTag
 	hasNick bool
 }
 
-func (n *astDiscordUserMention) String() string {
+func (n *astFluxerUserMention) String() string {
 	if n.hasNick {
 		return fmt.Sprintf("<@!%d>", n.id)
 	}
 	return fmt.Sprintf("<@%d>", n.id)
 }
 
-type astDiscordRoleMention struct {
-	astDiscordTag
+type astFluxerRoleMention struct {
+	astFluxerTag
 }
 
-func (n *astDiscordRoleMention) String() string {
+func (n *astFluxerRoleMention) String() string {
 	return fmt.Sprintf("<@&%d>", n.id)
 }
 
-type astDiscordChannelMention struct {
-	astDiscordTag
+type astFluxerChannelMention struct {
+	astFluxerTag
 
 	guildID int64
 	name    string
 }
 
-func (n *astDiscordChannelMention) String() string {
+func (n *astFluxerChannelMention) String() string {
 	if n.guildID != 0 {
 		return fmt.Sprintf("<#%d:%d:%s>", n.id, n.guildID, n.name)
 	}
 	return fmt.Sprintf("<#%d>", n.id)
 }
 
-type discordTimestampStyle rune
+type fluxerTimestampStyle rune
 
-func (dts discordTimestampStyle) Format() string {
+func (dts fluxerTimestampStyle) Format() string {
 	switch dts {
 	case 't':
 		return "15:04 MST"
@@ -107,50 +107,50 @@ func (dts discordTimestampStyle) Format() string {
 	}
 }
 
-type astDiscordTimestamp struct {
-	astDiscordTag
+type astFluxerTimestamp struct {
+	astFluxerTag
 
 	timestamp int64
-	style     discordTimestampStyle
+	style     fluxerTimestampStyle
 }
 
-func (n *astDiscordTimestamp) String() string {
+func (n *astFluxerTimestamp) String() string {
 	if n.style == 'f' {
 		return fmt.Sprintf("<t:%d>", n.timestamp)
 	}
 	return fmt.Sprintf("<t:%d:%c>", n.timestamp, n.style)
 }
 
-type astDiscordCustomEmoji struct {
-	astDiscordTag
+type astFluxerCustomEmoji struct {
+	astFluxerTag
 	name     string
 	animated bool
 }
 
-func (n *astDiscordCustomEmoji) String() string {
+func (n *astFluxerCustomEmoji) String() string {
 	if n.animated {
 		return fmt.Sprintf("<a%s%d>", n.name, n.id)
 	}
 	return fmt.Sprintf("<%s%d>", n.name, n.id)
 }
 
-type discordTagParser struct{}
+type fluxerTagParser struct{}
 
-// Regex to match everything in https://discord.com/developers/docs/reference#message-formatting
-var discordTagRegex = regexp.MustCompile(`<(a?:\w+:|@[!&]?|#|t:)(\d+)(?::([tTdDfFR])|(\d+):(.+?))?>`)
-var defaultDiscordTagParser = &discordTagParser{}
+// Regex to match everything in https://fluxer.app/developers/docs/reference#message-formatting
+var fluxerTagRegex = regexp.MustCompile(`<(a?:\w+:|@[!&]?|#|t:)(\d+)(?::([tTdDfFR])|(\d+):(.+?))?>`)
+var defaultFluxerTagParser = &fluxerTagParser{}
 
-func (s *discordTagParser) Trigger() []byte {
+func (s *fluxerTagParser) Trigger() []byte {
 	return []byte{'<'}
 }
 
 var parserContextPortal = parser.NewContextKey()
 
-func (s *discordTagParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
+func (s *fluxerTagParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
 	portal := pc.Get(parserContextPortal).(*Portal)
 	//before := block.PrecendingCharacter()
 	line, _ := block.PeekLine()
-	match := discordTagRegex.FindSubmatch(line)
+	match := fluxerTagRegex.FindSubmatch(line)
 	if match == nil {
 		return nil
 	}
@@ -161,15 +161,15 @@ func (s *discordTagParser) Parse(parent ast.Node, block text.Reader, pc parser.C
 	if err != nil {
 		return nil
 	}
-	tag := astDiscordTag{id: id, portal: portal}
+	tag := astFluxerTag{id: id, portal: portal}
 	tagName := string(match[1])
 	switch {
 	case tagName == "@":
-		return &astDiscordUserMention{astDiscordTag: tag}
+		return &astFluxerUserMention{astFluxerTag: tag}
 	case tagName == "@!":
-		return &astDiscordUserMention{astDiscordTag: tag, hasNick: true}
+		return &astFluxerUserMention{astFluxerTag: tag, hasNick: true}
 	case tagName == "@&":
-		return &astDiscordRoleMention{astDiscordTag: tag}
+		return &astFluxerRoleMention{astFluxerTag: tag}
 	case tagName == "#":
 		var guildID int64
 		var channelName string
@@ -177,38 +177,38 @@ func (s *discordTagParser) Parse(parent ast.Node, block text.Reader, pc parser.C
 			guildID, _ = strconv.ParseInt(string(match[4]), 10, 64)
 			channelName = string(match[5])
 		}
-		return &astDiscordChannelMention{astDiscordTag: tag, guildID: guildID, name: channelName}
+		return &astFluxerChannelMention{astFluxerTag: tag, guildID: guildID, name: channelName}
 	case tagName == "t:":
-		var style discordTimestampStyle
+		var style fluxerTimestampStyle
 		if len(match[3]) == 0 {
 			style = 'f'
 		} else {
-			style = discordTimestampStyle(match[3][0])
+			style = fluxerTimestampStyle(match[3][0])
 		}
-		return &astDiscordTimestamp{
-			astDiscordTag: tag,
-			timestamp:     id,
-			style:         style,
+		return &astFluxerTimestamp{
+			astFluxerTag: tag,
+			timestamp:    id,
+			style:        style,
 		}
 	case strings.HasPrefix(tagName, ":"):
-		return &astDiscordCustomEmoji{name: tagName, astDiscordTag: tag}
+		return &astFluxerCustomEmoji{name: tagName, astFluxerTag: tag}
 	case strings.HasPrefix(tagName, "a:"):
-		return &astDiscordCustomEmoji{name: tagName[1:], astDiscordTag: tag, animated: true}
+		return &astFluxerCustomEmoji{name: tagName[1:], astFluxerTag: tag, animated: true}
 	default:
 		return nil
 	}
 }
 
-func (s *discordTagParser) CloseBlock(parent ast.Node, pc parser.Context) {
+func (s *fluxerTagParser) CloseBlock(parent ast.Node, pc parser.Context) {
 	// nothing to do
 }
 
-type discordTagHTMLRenderer struct{}
+type fluxerTagHTMLRenderer struct{}
 
-var defaultDiscordTagHTMLRenderer = &discordTagHTMLRenderer{}
+var defaultFluxerTagHTMLRenderer = &fluxerTagHTMLRenderer{}
 
-func (r *discordTagHTMLRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
-	reg.Register(astKindDiscordTag, r.renderDiscordMention)
+func (r *fluxerTagHTMLRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
+	reg.Register(astKindFluxerTag, r.renderFluxerMention)
 }
 
 func relativeTimeFormat(ts time.Time) string {
@@ -256,13 +256,13 @@ func relativeTimeFormat(ts time.Time) string {
 	return fmt.Sprintf(word, diff)
 }
 
-func (r *discordTagHTMLRenderer) renderDiscordMention(w util.BufWriter, source []byte, n ast.Node, entering bool) (status ast.WalkStatus, err error) {
+func (r *fluxerTagHTMLRenderer) renderFluxerMention(w util.BufWriter, source []byte, n ast.Node, entering bool) (status ast.WalkStatus, err error) {
 	status = ast.WalkContinue
 	if !entering {
 		return
 	}
 	switch node := n.(type) {
-	case *astDiscordUserMention:
+	case *astFluxerUserMention:
 		var mxid id.UserID
 		var name string
 		if puppet := node.portal.bridge.GetPuppetByID(strconv.FormatInt(node.id, 10)); puppet != nil {
@@ -277,13 +277,13 @@ func (r *discordTagHTMLRenderer) renderDiscordMention(w util.BufWriter, source [
 		}
 		_, _ = fmt.Fprintf(w, `<a href="%s">%s</a>`, mxid.URI().MatrixToURL(), name)
 		return
-	case *astDiscordRoleMention:
+	case *astFluxerRoleMention:
 		role := node.portal.bridge.DB.Role.GetByID(node.portal.GuildID, strconv.FormatInt(node.id, 10))
 		if role != nil {
 			_, _ = fmt.Fprintf(w, `<font color="#%06x"><strong>@%s</strong></font>`, role.Color, role.Name)
 			return
 		}
-	case *astDiscordChannelMention:
+	case *astFluxerChannelMention:
 		portal := node.portal.bridge.GetExistingPortalByID(database.PortalKey{
 			ChannelID: strconv.FormatInt(node.id, 10),
 			Receiver:  "",
@@ -296,8 +296,8 @@ func (r *discordTagHTMLRenderer) renderDiscordMention(w util.BufWriter, source [
 			}
 			return
 		}
-	case *astDiscordCustomEmoji:
-		reactionMXC := node.portal.getEmojiMXCByDiscordID(strconv.FormatInt(node.id, 10), node.name, node.animated)
+	case *astFluxerCustomEmoji:
+		reactionMXC := node.portal.getEmojiMXCByFluxerID(strconv.FormatInt(node.id, 10), node.name, node.animated)
 		if !reactionMXC.IsEmpty() {
 			attrs := "data-mx-emoticon"
 			if node.animated {
@@ -306,7 +306,7 @@ func (r *discordTagHTMLRenderer) renderDiscordMention(w util.BufWriter, source [
 			_, _ = fmt.Fprintf(w, `<img %[3]s src="%[1]s" alt="%[2]s" title="%[2]s" height="32"/>`, reactionMXC.String(), node.name, attrs)
 			return
 		}
-	case *astDiscordTimestamp:
+	case *astFluxerTimestamp:
 		ts := time.Unix(node.timestamp, 0).UTC()
 		var formatted string
 		if node.style == 'R' {
@@ -317,8 +317,8 @@ func (r *discordTagHTMLRenderer) renderDiscordMention(w util.BufWriter, source [
 		// https://github.com/matrix-org/matrix-spec-proposals/pull/3160
 		const fullDatetimeFormat = "2006-01-02T15:04:05.000-0700"
 		fullRFC := ts.Format(fullDatetimeFormat)
-		fullHumanReadable := ts.Format(discordTimestampStyle('F').Format())
-		_, _ = fmt.Fprintf(w, `<time title="%s" datetime="%s" data-discord-style="%c"><strong>%s</strong></time>`, fullHumanReadable, fullRFC, node.style, formatted)
+		fullHumanReadable := ts.Format(fluxerTimestampStyle('F').Format())
+		_, _ = fmt.Fprintf(w, `<time title="%s" datetime="%s" data-fluxer-style="%c"><strong>%s</strong></time>`, fullHumanReadable, fullRFC, node.style, formatted)
 	}
 	stringifiable, ok := n.(fmt.Stringer)
 	if ok {
@@ -329,15 +329,15 @@ func (r *discordTagHTMLRenderer) renderDiscordMention(w util.BufWriter, source [
 	return
 }
 
-type discordTag struct{}
+type fluxerTag struct{}
 
-var ExtDiscordTag = &discordTag{}
+var ExtFluxerTag = &fluxerTag{}
 
-func (e *discordTag) Extend(m goldmark.Markdown) {
+func (e *fluxerTag) Extend(m goldmark.Markdown) {
 	m.Parser().AddOptions(parser.WithInlineParsers(
-		util.Prioritized(defaultDiscordTagParser, 600),
+		util.Prioritized(defaultFluxerTagParser, 600),
 	))
 	m.Renderer().AddOptions(renderer.WithNodeRenderers(
-		util.Prioritized(defaultDiscordTagHTMLRenderer, 600),
+		util.Prioritized(defaultFluxerTagHTMLRenderer, 600),
 	))
 }

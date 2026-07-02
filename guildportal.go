@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -28,22 +28,22 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 
-	"go.mau.fi/mautrix-discord/config"
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/config"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type Guild struct {
 	*database.Guild
 
-	bridge *DiscordBridge
+	bridge *FluxerBridge
 	log    log.Logger
 
 	roomCreateLock sync.Mutex
 }
 
-func (br *DiscordBridge) loadGuild(dbGuild *database.Guild, id string, createIfNotExist bool) *Guild {
+func (br *FluxerBridge) loadGuild(dbGuild *database.Guild, id string, createIfNotExist bool) *Guild {
 	if dbGuild == nil {
 		if id == "" || !createIfNotExist {
 			return nil
@@ -64,7 +64,7 @@ func (br *DiscordBridge) loadGuild(dbGuild *database.Guild, id string, createIfN
 	return guild
 }
 
-func (br *DiscordBridge) GetGuildByMXID(mxid id.RoomID) *Guild {
+func (br *FluxerBridge) GetGuildByMXID(mxid id.RoomID) *Guild {
 	br.guildsLock.Lock()
 	defer br.guildsLock.Unlock()
 
@@ -76,7 +76,7 @@ func (br *DiscordBridge) GetGuildByMXID(mxid id.RoomID) *Guild {
 	return portal
 }
 
-func (br *DiscordBridge) GetGuildByID(id string, createIfNotExist bool) *Guild {
+func (br *FluxerBridge) GetGuildByID(id string, createIfNotExist bool) *Guild {
 	br.guildsLock.Lock()
 	defer br.guildsLock.Unlock()
 
@@ -88,11 +88,11 @@ func (br *DiscordBridge) GetGuildByID(id string, createIfNotExist bool) *Guild {
 	return guild
 }
 
-func (br *DiscordBridge) GetAllGuilds() []*Guild {
+func (br *FluxerBridge) GetAllGuilds() []*Guild {
 	return br.dbGuildsToGuilds(br.DB.Guild.GetAll())
 }
 
-func (br *DiscordBridge) dbGuildsToGuilds(dbGuilds []*database.Guild) []*Guild {
+func (br *FluxerBridge) dbGuildsToGuilds(dbGuilds []*database.Guild) []*Guild {
 	br.guildsLock.Lock()
 	defer br.guildsLock.Unlock()
 
@@ -113,7 +113,7 @@ func (br *DiscordBridge) dbGuildsToGuilds(dbGuilds []*database.Guild) []*Guild {
 	return output
 }
 
-func (br *DiscordBridge) NewGuild(dbGuild *database.Guild) *Guild {
+func (br *FluxerBridge) NewGuild(dbGuild *database.Guild) *Guild {
 	guild := &Guild{
 		Guild:  dbGuild,
 		bridge: br,
@@ -128,10 +128,10 @@ func (guild *Guild) getBridgeInfo() (string, event.BridgeEventContent) {
 		BridgeBot: guild.bridge.Bot.UserID,
 		Creator:   guild.bridge.Bot.UserID,
 		Protocol: event.BridgeInfoSection{
-			ID:          "discordgo",
-			DisplayName: "Discord",
+			ID:          "fluxergo",
+			DisplayName: "Fluxer",
 			AvatarURL:   guild.bridge.Config.AppService.Bot.ParsedAvatar.CUString(),
-			ExternalURL: "https://discord.com/",
+			ExternalURL: "https://fluxer.app/",
 		},
 		Channel: event.BridgeInfoSection{
 			ID:          guild.ID,
@@ -139,7 +139,7 @@ func (guild *Guild) getBridgeInfo() (string, event.BridgeEventContent) {
 			AvatarURL:   guild.AvatarURL.CUString(),
 		},
 	}
-	bridgeInfoStateKey := fmt.Sprintf("fi.mau.discord://discord/%s", guild.ID)
+	bridgeInfoStateKey := fmt.Sprintf("fi.mau.fluxer://fluxer/%s", guild.ID)
 	return bridgeInfoStateKey, bridgeInfo
 }
 
@@ -161,7 +161,7 @@ func (guild *Guild) UpdateBridgeInfo() {
 	}
 }
 
-func (guild *Guild) CreateMatrixRoom(user *User, meta *discordgo.Guild) error {
+func (guild *Guild) CreateMatrixRoom(user *User, meta *fluxergo.Guild) error {
 	guild.roomCreateLock.Lock()
 	defer guild.roomCreateLock.Unlock()
 	if guild.MXID != "" {
@@ -226,7 +226,7 @@ func (guild *Guild) CreateMatrixRoom(user *User, meta *discordgo.Guild) error {
 	return nil
 }
 
-func (guild *Guild) UpdateInfo(source *User, meta *discordgo.Guild) *discordgo.Guild {
+func (guild *Guild) UpdateInfo(source *User, meta *fluxergo.Guild) *fluxergo.Guild {
 	if meta.Unavailable {
 		guild.log.Debugfln("Ignoring unavailable guild update")
 		return meta
@@ -242,7 +242,7 @@ func (guild *Guild) UpdateInfo(source *User, meta *discordgo.Guild) *discordgo.G
 	return meta
 }
 
-func (guild *Guild) UpdateName(meta *discordgo.Guild) bool {
+func (guild *Guild) UpdateName(meta *fluxergo.Guild) bool {
 	name := guild.bridge.Config.Bridge.FormatGuildName(config.GuildNameParams{
 		Name: meta.Name,
 	})
@@ -274,7 +274,7 @@ func (guild *Guild) UpdateAvatar(iconID string) bool {
 	guild.AvatarURL = id.ContentURI{}
 	if guild.Avatar != "" {
 		// TODO direct media support
-		copied, err := guild.bridge.copyAttachmentToMatrix(guild.bridge.Bot, discordgo.EndpointGuildIcon(guild.ID, iconID), false, AttachmentMeta{
+		copied, err := guild.bridge.copyAttachmentToMatrix(guild.bridge.Bot, fluxergo.EndpointGuildIcon(guild.ID, iconID), false, AttachmentMeta{
 			AttachmentID: fmt.Sprintf("guild_avatar/%s/%s", guild.ID, iconID),
 		})
 		if err != nil {

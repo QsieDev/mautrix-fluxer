@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEscapeDiscordMarkdown(t *testing.T) {
+func TestEscapeFluxerMarkdown(t *testing.T) {
 	type escapeTest struct {
 		name     string
 		input    string
@@ -51,7 +51,7 @@ func TestEscapeDiscordMarkdown(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.expected, escapeDiscordMarkdown(test.input))
+			assert.Equal(t, test.expected, escapeFluxerMarkdown(test.input))
 		})
 	}
 }

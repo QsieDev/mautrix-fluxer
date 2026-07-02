@@ -1,17 +1,17 @@
-module go.mau.fi/mautrix-discord
+module go.mau.fi/mautrix-fluxer
 
 go 1.25.0
 
 toolchain go1.26.0
 
 require (
-	github.com/bwmarrin/discordgo v0.27.0
 	github.com/gabriel-vasile/mimetype v1.4.9
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.28
+	github.com/qsiedev/fluxergo v0.0.0-20260702195732-af509e475267
 	github.com/rs/zerolog v1.34.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.10.0
@@ -42,5 +42,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	maunium.net/go/mauflag v1.0.0 // indirect
 )
-
-replace github.com/bwmarrin/discordgo => github.com/beeper/discordgo v0.0.0-20260215125047-ccf8cbaa0a9f

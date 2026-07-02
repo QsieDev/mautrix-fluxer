@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 	"golang.org/x/exp/slices"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type Thread struct {
@@ -21,17 +21,17 @@ type Thread struct {
 	initialBackfillAttempted bool
 }
 
-func (br *DiscordBridge) GetThreadByID(id string, root *database.Message) *Thread {
+func (br *FluxerBridge) GetThreadByID(id string, root *database.Message) *Thread {
 	br.threadsLock.Lock()
 	defer br.threadsLock.Unlock()
 	thread, ok := br.threadsByID[id]
 	if !ok {
-		return br.loadThread(br.DB.Thread.GetByDiscordID(id), id, root)
+		return br.loadThread(br.DB.Thread.GetByFluxerID(id), id, root)
 	}
 	return thread
 }
 
-func (br *DiscordBridge) GetThreadByRootMXID(mxid id.EventID) *Thread {
+func (br *FluxerBridge) GetThreadByRootMXID(mxid id.EventID) *Thread {
 	br.threadsLock.Lock()
 	defer br.threadsLock.Unlock()
 	thread, ok := br.threadsByRootMXID[mxid]
@@ -41,7 +41,7 @@ func (br *DiscordBridge) GetThreadByRootMXID(mxid id.EventID) *Thread {
 	return thread
 }
 
-func (br *DiscordBridge) GetThreadByRootOrCreationNoticeMXID(mxid id.EventID) *Thread {
+func (br *FluxerBridge) GetThreadByRootOrCreationNoticeMXID(mxid id.EventID) *Thread {
 	br.threadsLock.Lock()
 	defer br.threadsLock.Unlock()
 	thread, ok := br.threadsByRootMXID[mxid]
@@ -54,14 +54,14 @@ func (br *DiscordBridge) GetThreadByRootOrCreationNoticeMXID(mxid id.EventID) *T
 	return thread
 }
 
-func (br *DiscordBridge) loadThread(dbThread *database.Thread, id string, root *database.Message) *Thread {
+func (br *FluxerBridge) loadThread(dbThread *database.Thread, id string, root *database.Message) *Thread {
 	if dbThread == nil {
 		if root == nil {
 			return nil
 		}
 		dbThread = br.DB.Thread.New()
 		dbThread.ID = id
-		dbThread.RootDiscordID = root.DiscordID
+		dbThread.RootFluxerID = root.FluxerID
 		dbThread.RootMXID = root.MXID
 		dbThread.ParentID = root.Channel.ChannelID
 		dbThread.Insert()
@@ -78,7 +78,7 @@ func (br *DiscordBridge) loadThread(dbThread *database.Thread, id string, root *
 	return thread
 }
 
-func (br *DiscordBridge) threadFound(ctx context.Context, source *User, rootMessage *database.Message, id string, metadata *discordgo.Channel) {
+func (br *FluxerBridge) threadFound(ctx context.Context, source *User, rootMessage *database.Message, id string, metadata *fluxergo.Channel) {
 	thread := br.GetThreadByID(id, rootMessage)
 	log := zerolog.Ctx(ctx)
 	log.Debug().Msg("Marked message as thread root")
@@ -86,9 +86,9 @@ func (br *DiscordBridge) threadFound(ctx context.Context, source *User, rootMess
 		thread.Parent.sendThreadCreationNotice(ctx, thread)
 	}
 	// TODO member_ids_preview is probably not guaranteed to contain the source user
-	if source != nil && metadata != nil && slices.Contains(metadata.MemberIDsPreview, source.DiscordID) && !source.IsInPortal(thread.ID) {
+	if source != nil && metadata != nil && slices.Contains(metadata.MemberIDsPreview, source.FluxerID) && !source.IsInPortal(thread.ID) {
 		source.MarkInPortal(database.UserPortal{
-			DiscordID: thread.ID,
+			FluxerID:  thread.ID,
 			Type:      database.UserPortalTypeThread,
 			Timestamp: time.Now(),
 		})
@@ -112,8 +112,8 @@ func (thread *Thread) maybeInitialBackfill(source *User) {
 	thread.Parent.forwardBackfillInitial(source, thread)
 }
 
-func (thread *Thread) RefererOpt() discordgo.RequestOption {
-	return discordgo.WithThreadReferer(thread.Parent.GuildID, thread.ParentID, thread.ID)
+func (thread *Thread) RefererOpt() fluxergo.RequestOption {
+	return fluxergo.WithThreadReferer(thread.Parent.GuildID, thread.ParentID, thread.ID)
 }
 
 func (thread *Thread) Join(user *User) {
@@ -141,7 +141,7 @@ func (thread *Thread) Join(user *User) {
 
 	var err error
 	if user.Session.IsUser {
-		err = user.Session.ThreadJoin(thread.ID, discordgo.WithLocationParam(discordgo.ThreadJoinLocationContextMenu), thread.RefererOpt())
+		err = user.Session.ThreadJoin(thread.ID, fluxergo.WithLocationParam(fluxergo.ThreadJoinLocationContextMenu), thread.RefererOpt())
 	} else {
 		err = user.Session.ThreadJoin(thread.ID)
 	}
@@ -149,7 +149,7 @@ func (thread *Thread) Join(user *User) {
 		log.Error().Err(err).Msg("Error joining thread")
 	} else {
 		user.MarkInPortal(database.UserPortal{
-			DiscordID: thread.ID,
+			FluxerID:  thread.ID,
 			Type:      database.UserPortalTypeThread,
 			Timestamp: time.Now(),
 		})

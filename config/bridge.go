@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -22,12 +22,15 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 
 	"maunium.net/go/mautrix/bridge/bridgeconfig"
 )
 
 type BridgeConfig struct {
+	APIURL string `yaml:"api_url"`
+	CDNURL string `yaml:"cdn_url"`
+
 	UsernameTemplate          string `yaml:"username_template"`
 	DisplaynameTemplate       string `yaml:"displayname_template"`
 	ChannelNameTemplate       string `yaml:"channel_name_template"`
@@ -55,7 +58,7 @@ type BridgeConfig struct {
 	FederateRooms               bool `yaml:"federate_rooms"`
 	PrefixWebhookMessages       bool `yaml:"prefix_webhook_messages"`
 	EnableWebhookAvatars        bool `yaml:"enable_webhook_avatars"`
-	UseDiscordCDNUpload         bool `yaml:"use_discord_cdn_upload"`
+	UseFluxerCDNUpload          bool `yaml:"use_fluxer_cdn_upload"`
 	ForbidDMingStrangers        bool `yaml:"forbid_dming_strangers"`
 
 	Proxy string `yaml:"proxy"`
@@ -200,12 +203,12 @@ func (bc BridgeConfig) FormatUsername(userID string) string {
 }
 
 type DisplaynameParams struct {
-	*discordgo.User
+	*fluxergo.User
 	Webhook     bool
 	Application bool
 }
 
-func (bc BridgeConfig) FormatDisplayname(user *discordgo.User, webhook, application bool) string {
+func (bc BridgeConfig) FormatDisplayname(user *fluxergo.User, webhook, application bool) string {
 	var buffer strings.Builder
 	_ = bc.displaynameTemplate.Execute(&buffer, &DisplaynameParams{
 		User:        user,
@@ -220,7 +223,7 @@ type ChannelNameParams struct {
 	ParentName string
 	GuildName  string
 	NSFW       bool
-	Type       discordgo.ChannelType
+	Type       fluxergo.ChannelType
 }
 
 func (bc BridgeConfig) FormatChannelName(params ChannelNameParams) string {

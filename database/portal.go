@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"go.mau.fi/util/dbutil"
 	log "maunium.net/go/maulogger/v2"
 	"maunium.net/go/mautrix/id"
@@ -67,17 +67,17 @@ func (pq *PortalQuery) GetByMXID(mxid id.RoomID) *Portal {
 }
 
 func (pq *PortalQuery) FindPrivateChatBetween(id, receiver string) *Portal {
-	return pq.get(portalSelect+" WHERE other_user_id=$1 AND receiver=$2 AND type=$3", id, receiver, discordgo.ChannelTypeDM)
+	return pq.get(portalSelect+" WHERE other_user_id=$1 AND receiver=$2 AND type=$3", id, receiver, fluxergo.ChannelTypeDM)
 }
 
 func (pq *PortalQuery) FindPrivateChatsWith(id string) []*Portal {
-	return pq.getAll(portalSelect+" WHERE other_user_id=$1 AND type=$2", id, discordgo.ChannelTypeDM)
+	return pq.getAll(portalSelect+" WHERE other_user_id=$1 AND type=$2", id, fluxergo.ChannelTypeDM)
 }
 
 func (pq *PortalQuery) FindPrivateChatsOf(receiver string) []*Portal {
 	query := portalSelect + " portal WHERE receiver=$1 AND type=$2;"
 
-	return pq.getAll(query, receiver, discordgo.ChannelTypeDM)
+	return pq.getAll(query, receiver, fluxergo.ChannelTypeDM)
 }
 
 func (pq *PortalQuery) getAll(query string, args ...interface{}) []*Portal {
@@ -104,7 +104,7 @@ type Portal struct {
 	log log.Logger
 
 	Key         PortalKey
-	Type        discordgo.ChannelType
+	Type        fluxergo.ChannelType
 	OtherUserID string
 	ParentID    string
 	GuildID     string
@@ -151,7 +151,7 @@ func (p *Portal) Scan(row dbutil.Scannable) *Portal {
 	p.OtherUserID = otherUserID.String
 	p.GuildID = guildID.String
 	p.ParentID = parentID.String
-	p.Type = discordgo.ChannelType(chanType)
+	p.Type = fluxergo.ChannelType(chanType)
 	p.FirstEventID = id.EventID(firstEventID.String)
 	p.AvatarURL, _ = id.ParseContentURI(avatarURL)
 	p.RelayWebhookID = relayWebhookID.String

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 
 	"maunium.net/go/mautrix"
@@ -14,13 +14,13 @@ import (
 	"maunium.net/go/mautrix/bridge"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type Puppet struct {
 	*database.Puppet
 
-	bridge *DiscordBridge
+	bridge *FluxerBridge
 	log    zerolog.Logger
 
 	MXID id.UserID
@@ -40,17 +40,17 @@ func (puppet *Puppet) GetMXID() id.UserID {
 
 var userIDRegex *regexp.Regexp
 
-func (br *DiscordBridge) NewPuppet(dbPuppet *database.Puppet) *Puppet {
+func (br *FluxerBridge) NewPuppet(dbPuppet *database.Puppet) *Puppet {
 	return &Puppet{
 		Puppet: dbPuppet,
 		bridge: br,
-		log:    br.ZLog.With().Str("discord_user_id", dbPuppet.ID).Logger(),
+		log:    br.ZLog.With().Str("fluxer_user_id", dbPuppet.ID).Logger(),
 
 		MXID: br.FormatPuppetMXID(dbPuppet.ID),
 	}
 }
 
-func (br *DiscordBridge) ParsePuppetMXID(mxid id.UserID) (string, bool) {
+func (br *FluxerBridge) ParsePuppetMXID(mxid id.UserID) (string, bool) {
 	if userIDRegex == nil {
 		pattern := fmt.Sprintf(
 			"^@%s:%s$",
@@ -69,16 +69,16 @@ func (br *DiscordBridge) ParsePuppetMXID(mxid id.UserID) (string, bool) {
 	return "", false
 }
 
-func (br *DiscordBridge) GetPuppetByMXID(mxid id.UserID) *Puppet {
-	discordID, ok := br.ParsePuppetMXID(mxid)
+func (br *FluxerBridge) GetPuppetByMXID(mxid id.UserID) *Puppet {
+	fluxerID, ok := br.ParsePuppetMXID(mxid)
 	if !ok {
 		return nil
 	}
 
-	return br.GetPuppetByID(discordID)
+	return br.GetPuppetByID(fluxerID)
 }
 
-func (br *DiscordBridge) GetPuppetByID(id string) *Puppet {
+func (br *FluxerBridge) GetPuppetByID(id string) *Puppet {
 	br.puppetsLock.Lock()
 	defer br.puppetsLock.Unlock()
 
@@ -98,7 +98,7 @@ func (br *DiscordBridge) GetPuppetByID(id string) *Puppet {
 	return puppet
 }
 
-func (br *DiscordBridge) GetPuppetByCustomMXID(mxid id.UserID) *Puppet {
+func (br *FluxerBridge) GetPuppetByCustomMXID(mxid id.UserID) *Puppet {
 	br.puppetsLock.Lock()
 	defer br.puppetsLock.Unlock()
 
@@ -117,15 +117,15 @@ func (br *DiscordBridge) GetPuppetByCustomMXID(mxid id.UserID) *Puppet {
 	return puppet
 }
 
-func (br *DiscordBridge) GetAllPuppetsWithCustomMXID() []*Puppet {
+func (br *FluxerBridge) GetAllPuppetsWithCustomMXID() []*Puppet {
 	return br.dbPuppetsToPuppets(br.DB.Puppet.GetAllWithCustomMXID())
 }
 
-func (br *DiscordBridge) GetAllPuppets() []*Puppet {
+func (br *FluxerBridge) GetAllPuppets() []*Puppet {
 	return br.dbPuppetsToPuppets(br.DB.Puppet.GetAll())
 }
 
-func (br *DiscordBridge) dbPuppetsToPuppets(dbPuppets []*database.Puppet) []*Puppet {
+func (br *FluxerBridge) dbPuppetsToPuppets(dbPuppets []*database.Puppet) []*Puppet {
 	br.puppetsLock.Lock()
 	defer br.puppetsLock.Unlock()
 
@@ -151,7 +151,7 @@ func (br *DiscordBridge) dbPuppetsToPuppets(dbPuppets []*database.Puppet) []*Pup
 	return output
 }
 
-func (br *DiscordBridge) FormatPuppetMXID(did string) id.UserID {
+func (br *FluxerBridge) FormatPuppetMXID(did string) id.UserID {
 	return id.NewUserID(
 		br.Config.Bridge.FormatUsername(did),
 		br.Config.Homeserver.Domain,
@@ -194,7 +194,7 @@ func (puppet *Puppet) updatePortalMeta(meta func(portal *Portal)) {
 	}
 }
 
-func (puppet *Puppet) UpdateName(info *discordgo.User) bool {
+func (puppet *Puppet) UpdateName(info *fluxergo.User) bool {
 	newName := puppet.bridge.Config.Bridge.FormatDisplayname(info, puppet.IsWebhook, puppet.IsApplication)
 	if puppet.Name == newName && puppet.NameSet {
 		return false
@@ -216,19 +216,19 @@ func (puppet *Puppet) UpdateName(info *discordgo.User) bool {
 	return true
 }
 
-func (br *DiscordBridge) reuploadUserAvatar(intent *appservice.IntentAPI, guildID, userID, avatarID string) (id.ContentURI, string, error) {
+func (br *FluxerBridge) reuploadUserAvatar(intent *appservice.IntentAPI, guildID, userID, avatarID string) (id.ContentURI, string, error) {
 	var downloadURL string
 	if guildID == "" {
 		if strings.HasPrefix(avatarID, "a_") {
-			downloadURL = discordgo.EndpointUserAvatarAnimated(userID, avatarID)
+			downloadURL = fluxergo.EndpointUserAvatarAnimated(userID, avatarID)
 		} else {
-			downloadURL = discordgo.EndpointUserAvatar(userID, avatarID)
+			downloadURL = fluxergo.EndpointUserAvatar(userID, avatarID)
 		}
 	} else {
 		if strings.HasPrefix(avatarID, "a_") {
-			downloadURL = discordgo.EndpointGuildMemberAvatarAnimated(guildID, userID, avatarID)
+			downloadURL = fluxergo.EndpointGuildMemberAvatarAnimated(guildID, userID, avatarID)
 		} else {
-			downloadURL = discordgo.EndpointGuildMemberAvatar(guildID, userID, avatarID)
+			downloadURL = fluxergo.EndpointGuildMemberAvatar(guildID, userID, avatarID)
 		}
 	}
 	url := br.DMA.AvatarMXC(guildID, userID, avatarID)
@@ -244,7 +244,7 @@ func (br *DiscordBridge) reuploadUserAvatar(intent *appservice.IntentAPI, guildI
 	return copied.MXC, downloadURL, nil
 }
 
-func (puppet *Puppet) UpdateAvatar(info *discordgo.User) bool {
+func (puppet *Puppet) UpdateAvatar(info *fluxergo.User) bool {
 	avatarID := info.Avatar
 	if puppet.IsWebhook && !puppet.bridge.Config.Bridge.EnableWebhookAvatars {
 		avatarID = ""
@@ -281,7 +281,7 @@ func (puppet *Puppet) UpdateAvatar(info *discordgo.User) bool {
 	return true
 }
 
-func (puppet *Puppet) UpdateInfo(source *User, info *discordgo.User, message *discordgo.Message) {
+func (puppet *Puppet) UpdateInfo(source *User, info *fluxergo.User, message *fluxergo.Message) {
 	puppet.syncLock.Lock()
 	defer puppet.syncLock.Unlock()
 
@@ -290,10 +290,10 @@ func (puppet *Puppet) UpdateInfo(source *User, info *discordgo.User, message *di
 			return
 		}
 		var err error
-		puppet.log.Debug().Str("source_user", source.DiscordID).Msg("Fetching info through user to update puppet")
+		puppet.log.Debug().Str("source_user", source.FluxerID).Msg("Fetching info through user to update puppet")
 		info, err = source.Session.User(puppet.ID)
 		if err != nil {
-			puppet.log.Error().Err(err).Str("source_user", source.DiscordID).Msg("Failed to fetch info through user")
+			puppet.log.Error().Err(err).Str("source_user", source.FluxerID).Msg("Failed to fetch info through user")
 			return
 		}
 	}
@@ -331,7 +331,7 @@ func (puppet *Puppet) UpdateInfo(source *User, info *discordgo.User, message *di
 	}
 }
 
-func (puppet *Puppet) UpdateContactInfo(info *discordgo.User) bool {
+func (puppet *Puppet) UpdateContactInfo(info *fluxergo.User) bool {
 	changed := false
 	if puppet.Username != info.Username {
 		puppet.Username = info.Username
@@ -361,13 +361,13 @@ func (puppet *Puppet) ResendContactInfo() {
 	if !puppet.bridge.SpecVersions.Supports(mautrix.BeeperFeatureArbitraryProfileMeta) || puppet.ContactInfoSet {
 		return
 	}
-	discordUsername := puppet.Username
+	fluxerUsername := puppet.Username
 	if puppet.Discriminator != "0" {
-		discordUsername += "#" + puppet.Discriminator
+		fluxerUsername += "#" + puppet.Discriminator
 	}
 	contactInfo := map[string]any{
 		"com.beeper.bridge.identifiers": []string{
-			fmt.Sprintf("discord:%s", discordUsername),
+			fmt.Sprintf("fluxer:%s", fluxerUsername),
 		},
 		"com.beeper.bridge.remote_id":      puppet.ID,
 		"com.beeper.bridge.service":        puppet.bridge.BeeperServiceName,

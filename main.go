@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/qsiedev/fluxergo"
+
 	"go.mau.fi/util/configupgrade"
 	"go.mau.fi/util/exsync"
 	"golang.org/x/sync/semaphore"
@@ -29,8 +31,8 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/config"
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/config"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 // Information to find out exactly which commit the bridge was built from.
@@ -44,7 +46,7 @@ var (
 //go:embed example-config.yaml
 var ExampleConfig string
 
-type DiscordBridge struct {
+type FluxerBridge struct {
 	bridge.Bridge
 
 	Config *config.Config
@@ -81,11 +83,11 @@ type DiscordBridge struct {
 	parallelAttachmentSemaphore *semaphore.Weighted
 }
 
-func (br *DiscordBridge) GetExampleConfig() string {
+func (br *FluxerBridge) GetExampleConfig() string {
 	return ExampleConfig
 }
 
-func (br *DiscordBridge) GetConfigPtr() interface{} {
+func (br *FluxerBridge) GetConfigPtr() interface{} {
 	br.Config = &config.Config{
 		BaseConfig: &br.Bridge.Config,
 	}
@@ -93,7 +95,9 @@ func (br *DiscordBridge) GetConfigPtr() interface{} {
 	return br.Config
 }
 
-func (br *DiscordBridge) Init() {
+func (br *FluxerBridge) Init() {
+	fluxergo.SetBaseURL(br.Config.Bridge.APIURL, br.Config.Bridge.CDNURL)
+
 	br.CommandProcessor = commands.NewProcessor(&br.Bridge)
 	br.RegisterCommands()
 	br.EventProcessor.On(event.StateTombstone, br.HandleTombstone)
@@ -101,22 +105,22 @@ func (br *DiscordBridge) Init() {
 	matrixHTMLParser.PillConverter = br.pillConverter
 
 	br.DB = database.New(br.Bridge.DB, br.Log.Sub("Database"))
-	discordLog = br.ZLog.With().Str("component", "discordgo").Logger()
+	fluxerLog = br.ZLog.With().Str("component", "fluxergo").Logger()
 }
 
-func (br *DiscordBridge) Start() {
+func (br *FluxerBridge) Start() {
 	if br.Config.Bridge.Provisioning.SharedSecret != "disable" {
 		br.provisioning = newProvisioningAPI(br)
 	}
 	if br.Config.Bridge.PublicAddress != "" {
-		br.AS.Router.HandleFunc("/mautrix-discord/avatar/{server}/{mediaID}/{checksum}", br.serveMediaProxy).Methods(http.MethodGet)
+		br.AS.Router.HandleFunc("/mautrix-fluxer/avatar/{server}/{mediaID}/{checksum}", br.serveMediaProxy).Methods(http.MethodGet)
 	}
 	br.DMA = newDirectMediaAPI(br)
 	br.WaitWebsocketConnected()
 	go br.startUsers()
 }
 
-func (br *DiscordBridge) Stop() {
+func (br *FluxerBridge) Stop() {
 	for _, user := range br.usersByMXID {
 		if user.Session == nil {
 			continue
@@ -127,7 +131,7 @@ func (br *DiscordBridge) Stop() {
 	}
 }
 
-func (br *DiscordBridge) GetIPortal(mxid id.RoomID) bridge.Portal {
+func (br *FluxerBridge) GetIPortal(mxid id.RoomID) bridge.Portal {
 	p := br.GetPortalByMXID(mxid)
 	if p == nil {
 		return nil
@@ -135,7 +139,7 @@ func (br *DiscordBridge) GetIPortal(mxid id.RoomID) bridge.Portal {
 	return p
 }
 
-func (br *DiscordBridge) GetIUser(mxid id.UserID, create bool) bridge.User {
+func (br *FluxerBridge) GetIUser(mxid id.UserID, create bool) bridge.User {
 	p := br.GetUserByMXID(mxid)
 	if p == nil {
 		return nil
@@ -143,12 +147,12 @@ func (br *DiscordBridge) GetIUser(mxid id.UserID, create bool) bridge.User {
 	return p
 }
 
-func (br *DiscordBridge) IsGhost(mxid id.UserID) bool {
+func (br *FluxerBridge) IsGhost(mxid id.UserID) bool {
 	_, isGhost := br.ParsePuppetMXID(mxid)
 	return isGhost
 }
 
-func (br *DiscordBridge) GetIGhost(mxid id.UserID) bridge.Ghost {
+func (br *FluxerBridge) GetIGhost(mxid id.UserID) bridge.Ghost {
 	p := br.GetPuppetByMXID(mxid)
 	if p == nil {
 		return nil
@@ -156,12 +160,12 @@ func (br *DiscordBridge) GetIGhost(mxid id.UserID) bridge.Ghost {
 	return p
 }
 
-func (br *DiscordBridge) CreatePrivatePortal(id id.RoomID, user bridge.User, ghost bridge.Ghost) {
+func (br *FluxerBridge) CreatePrivatePortal(id id.RoomID, user bridge.User, ghost bridge.Ghost) {
 	//TODO implement
 }
 
 func main() {
-	br := &DiscordBridge{
+	br := &FluxerBridge{
 		usersByMXID: make(map[id.UserID]*User),
 		usersByID:   make(map[string]*User),
 
@@ -184,13 +188,13 @@ func main() {
 		parallelAttachmentSemaphore: semaphore.NewWeighted(3),
 	}
 	br.Bridge = bridge.Bridge{
-		Name:              "mautrix-discord",
-		URL:               "https://github.com/mautrix/discord",
-		Description:       "A Matrix-Discord puppeting bridge.",
+		Name:              "mautrix-fluxer",
+		URL:               "https://github.com/qsiedev/mautrix-fluxer",
+		Description:       "A Matrix-Fluxer puppeting bridge.",
 		Version:           "0.7.6",
-		ProtocolName:      "Discord",
-		BeeperServiceName: "discordgo",
-		BeeperNetworkName: "discord",
+		ProtocolName:      "Fluxer",
+		BeeperServiceName: "fluxergo",
+		BeeperNetworkName: "fluxer",
 
 		CryptoPickleKey: "maunium.net/go/mautrix-whatsapp",
 

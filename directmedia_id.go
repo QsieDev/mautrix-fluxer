@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2024 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ import (
 	"io"
 )
 
-const MediaIDPrefix = "\U0001F408DISCORD"
+const MediaIDPrefix = "\U0001F408FLUXER"
 const MediaIDVersion = 1
 
 type MediaIDClass uint8

@@ -5,5 +5,5 @@
 *.db*
 *.log*
 
-/mautrix-discord
+/mautrix-fluxer
 /start

@@ -1,5 +1,5 @@
--- v11: Cache files copied from Discord to Matrix
-CREATE TABLE discord_file (
+-- v11: Cache files copied from Fluxer to Matrix
+CREATE TABLE fluxer_file (
     url       TEXT,
     encrypted BOOLEAN,
 

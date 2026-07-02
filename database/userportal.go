@@ -17,7 +17,7 @@ const (
 )
 
 type UserPortal struct {
-	DiscordID string
+	FluxerID  string
 	Type      string
 	Timestamp time.Time
 	InSpace   bool
@@ -25,7 +25,7 @@ type UserPortal struct {
 
 func (up UserPortal) Scan(l log.Logger, row dbutil.Scannable) *UserPortal {
 	var ts int64
-	err := row.Scan(&up.DiscordID, &up.Type, &ts, &up.InSpace)
+	err := row.Scan(&up.FluxerID, &up.Type, &ts, &up.InSpace)
 	if err != nil {
 		l.Errorln("Error scanning user portal:", err)
 		panic(err)
@@ -46,7 +46,7 @@ func (u *User) scanUserPortals(rows dbutil.Rows) []UserPortal {
 }
 
 func (db *Database) GetUsersInPortal(channelID string) []id.UserID {
-	rows, err := db.Query("SELECT user_mxid FROM user_portal WHERE discord_id=$1", channelID)
+	rows, err := db.Query("SELECT user_mxid FROM user_portal WHERE fluxer_id=$1", channelID)
 	if err != nil {
 		db.Portal.log.Errorln("Failed to get users in portal:", err)
 	}
@@ -64,7 +64,7 @@ func (db *Database) GetUsersInPortal(channelID string) []id.UserID {
 }
 
 func (u *User) GetPortals() []UserPortal {
-	rows, err := u.db.Query("SELECT discord_id, type, timestamp, in_space FROM user_portal WHERE user_mxid=$1", u.MXID)
+	rows, err := u.db.Query("SELECT fluxer_id, type, timestamp, in_space FROM user_portal WHERE user_mxid=$1", u.MXID)
 	if err != nil {
 		u.log.Errorln("Failed to get portals:", err)
 		panic(err)
@@ -72,21 +72,21 @@ func (u *User) GetPortals() []UserPortal {
 	return u.scanUserPortals(rows)
 }
 
-func (u *User) IsInSpace(discordID string) (isIn bool) {
-	query := `SELECT in_space FROM user_portal WHERE user_mxid=$1 AND discord_id=$2`
-	err := u.db.QueryRow(query, u.MXID, discordID).Scan(&isIn)
+func (u *User) IsInSpace(fluxerID string) (isIn bool) {
+	query := `SELECT in_space FROM user_portal WHERE user_mxid=$1 AND fluxer_id=$2`
+	err := u.db.QueryRow(query, u.MXID, fluxerID).Scan(&isIn)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		u.log.Warnfln("Failed to scan in_space for %s/%s: %v", u.MXID, discordID, err)
+		u.log.Warnfln("Failed to scan in_space for %s/%s: %v", u.MXID, fluxerID, err)
 		panic(err)
 	}
 	return
 }
 
-func (u *User) IsInPortal(discordID string) (isIn bool) {
-	query := `SELECT EXISTS(SELECT 1 FROM user_portal WHERE user_mxid=$1 AND discord_id=$2)`
-	err := u.db.QueryRow(query, u.MXID, discordID).Scan(&isIn)
+func (u *User) IsInPortal(fluxerID string) (isIn bool) {
+	query := `SELECT EXISTS(SELECT 1 FROM user_portal WHERE user_mxid=$1 AND fluxer_id=$2)`
+	err := u.db.QueryRow(query, u.MXID, fluxerID).Scan(&isIn)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		u.log.Warnfln("Failed to scan in_space for %s/%s: %v", u.MXID, discordID, err)
+		u.log.Warnfln("Failed to scan in_space for %s/%s: %v", u.MXID, fluxerID, err)
 		panic(err)
 	}
 	return
@@ -94,32 +94,32 @@ func (u *User) IsInPortal(discordID string) (isIn bool) {
 
 func (u *User) MarkInPortal(portal UserPortal) {
 	query := `
-		INSERT INTO user_portal (discord_id, type, user_mxid, timestamp, in_space)
+		INSERT INTO user_portal (fluxer_id, type, user_mxid, timestamp, in_space)
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (discord_id, user_mxid) DO UPDATE
+		ON CONFLICT (fluxer_id, user_mxid) DO UPDATE
 		    SET timestamp=excluded.timestamp, in_space=excluded.in_space
 	`
-	_, err := u.db.Exec(query, portal.DiscordID, portal.Type, u.MXID, portal.Timestamp.UnixMilli(), portal.InSpace)
+	_, err := u.db.Exec(query, portal.FluxerID, portal.Type, u.MXID, portal.Timestamp.UnixMilli(), portal.InSpace)
 	if err != nil {
-		u.log.Errorfln("Failed to insert user portal %s/%s: %v", u.MXID, portal.DiscordID, err)
+		u.log.Errorfln("Failed to insert user portal %s/%s: %v", u.MXID, portal.FluxerID, err)
 		panic(err)
 	}
 }
 
-func (u *User) MarkNotInPortal(discordID string) {
-	query := `DELETE FROM user_portal WHERE user_mxid=$1 AND discord_id=$2`
-	_, err := u.db.Exec(query, u.MXID, discordID)
+func (u *User) MarkNotInPortal(fluxerID string) {
+	query := `DELETE FROM user_portal WHERE user_mxid=$1 AND fluxer_id=$2`
+	_, err := u.db.Exec(query, u.MXID, fluxerID)
 	if err != nil {
-		u.log.Errorfln("Failed to remove user portal %s/%s: %v", u.MXID, discordID, err)
+		u.log.Errorfln("Failed to remove user portal %s/%s: %v", u.MXID, fluxerID, err)
 		panic(err)
 	}
 }
 
-func (u *User) PortalHasOtherUsers(discordID string) (hasOtherUsers bool) {
-	query := `SELECT COUNT(*) > 0 FROM user_portal WHERE user_mxid<>$1 AND discord_id=$2`
-	err := u.db.QueryRow(query, u.MXID, discordID).Scan(&hasOtherUsers)
+func (u *User) PortalHasOtherUsers(fluxerID string) (hasOtherUsers bool) {
+	query := `SELECT COUNT(*) > 0 FROM user_portal WHERE user_mxid<>$1 AND fluxer_id=$2`
+	err := u.db.QueryRow(query, u.MXID, fluxerID).Scan(&hasOtherUsers)
 	if err != nil {
-		u.log.Errorfln("Failed to check if %s has users other than %s: %v", discordID, u.MXID, err)
+		u.log.Errorfln("Failed to check if %s has users other than %s: %v", fluxerID, u.MXID, err)
 		panic(err)
 	}
 	return
@@ -129,7 +129,7 @@ func (u *User) PrunePortalList(beforeTS time.Time) []UserPortal {
 	query := `
 		DELETE FROM user_portal
 		WHERE user_mxid=$1 AND timestamp<$2 AND type IN ('dm', 'guild')
-		RETURNING discord_id, type, timestamp, in_space
+		RETURNING fluxer_id, type, timestamp, in_space
 	`
 	rows, err := u.db.Query(query, u.MXID, beforeTS.UnixMilli())
 	if err != nil {

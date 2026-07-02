@@ -19,35 +19,35 @@ import (
 	"maunium.net/go/mautrix/bridge/bridgeconfig"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
-	"go.mau.fi/mautrix-discord/remoteauth"
+	"go.mau.fi/mautrix-fluxer/database"
+	"go.mau.fi/mautrix-fluxer/handoff"
 )
 
 const (
-	SecWebSocketProtocol = "com.gitlab.beeper.discord"
+	SecWebSocketProtocol = "com.gitlab.beeper.fluxer"
 )
 
 const (
-	ErrCodeNotConnected          = "FI.MAU.DISCORD.NOT_CONNECTED"
-	ErrCodeAlreadyLoggedIn       = "FI.MAU.DISCORD.ALREADY_LOGGED_IN"
-	ErrCodeAlreadyConnected      = "FI.MAU.DISCORD.ALREADY_CONNECTED"
-	ErrCodeConnectFailed         = "FI.MAU.DISCORD.CONNECT_FAILED"
-	ErrCodeDisconnectFailed      = "FI.MAU.DISCORD.DISCONNECT_FAILED"
+	ErrCodeNotConnected          = "FI.MAU.FLUXER.NOT_CONNECTED"
+	ErrCodeAlreadyLoggedIn       = "FI.MAU.FLUXER.ALREADY_LOGGED_IN"
+	ErrCodeAlreadyConnected      = "FI.MAU.FLUXER.ALREADY_CONNECTED"
+	ErrCodeConnectFailed         = "FI.MAU.FLUXER.CONNECT_FAILED"
+	ErrCodeDisconnectFailed      = "FI.MAU.FLUXER.DISCONNECT_FAILED"
 	ErrCodeGuildBridgeFailed     = "M_UNKNOWN"
 	ErrCodeGuildUnbridgeFailed   = "M_UNKNOWN"
-	ErrCodeGuildNotBridged       = "FI.MAU.DISCORD.GUILD_NOT_BRIDGED"
-	ErrCodeLoginPrepareFailed    = "FI.MAU.DISCORD.LOGIN_PREPARE_FAILED"
-	ErrCodeLoginConnectionFailed = "FI.MAU.DISCORD.LOGIN_CONN_FAILED"
-	ErrCodeLoginFailed           = "FI.MAU.DISCORD.LOGIN_FAILED"
-	ErrCodePostLoginConnFailed   = "FI.MAU.DISCORD.POST_LOGIN_CONNECTION_FAILED"
+	ErrCodeGuildNotBridged       = "FI.MAU.FLUXER.GUILD_NOT_BRIDGED"
+	ErrCodeLoginPrepareFailed    = "FI.MAU.FLUXER.LOGIN_PREPARE_FAILED"
+	ErrCodeLoginConnectionFailed = "FI.MAU.FLUXER.LOGIN_CONN_FAILED"
+	ErrCodeLoginFailed           = "FI.MAU.FLUXER.LOGIN_FAILED"
+	ErrCodePostLoginConnFailed   = "FI.MAU.FLUXER.POST_LOGIN_CONNECTION_FAILED"
 )
 
 type ProvisioningAPI struct {
-	bridge *DiscordBridge
+	bridge *FluxerBridge
 	log    log.Logger
 }
 
-func newProvisioningAPI(br *DiscordBridge) *ProvisioningAPI {
+func newProvisioningAPI(br *FluxerBridge) *ProvisioningAPI {
 	p := &ProvisioningAPI{
 		bridge: br,
 		log:    br.Log.Sub("Provisioning"),
@@ -126,7 +126,7 @@ func (p *ProvisioningAPI) authMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 
-		// Special case the login endpoint to use the discord qrcode auth
+		// Special case the login endpoint to use the fluxer qrcode auth
 		if auth == "" && strings.HasSuffix(r.URL.Path, "/login") {
 			authParts := strings.Split(r.Header.Get("Sec-WebSocket-Protocol"), ",")
 			for _, part := range authParts {
@@ -176,7 +176,7 @@ func (p *ProvisioningAPI) disconnect(w http.ResponseWriter, r *http.Request) {
 
 	if !user.Connected() {
 		jsonResponse(w, http.StatusConflict, Error{
-			Error:   "You're not connected to discord",
+			Error:   "You're not connected to fluxer",
 			ErrCode: ErrCodeNotConnected,
 		})
 		return
@@ -185,19 +185,19 @@ func (p *ProvisioningAPI) disconnect(w http.ResponseWriter, r *http.Request) {
 	if err := user.Disconnect(); err != nil {
 		p.log.Errorfln("Failed to disconnect %s: %v", user.MXID, err)
 		jsonResponse(w, http.StatusInternalServerError, Error{
-			Error:   "Failed to disconnect from discord",
+			Error:   "Failed to disconnect from fluxer",
 			ErrCode: ErrCodeDisconnectFailed,
 		})
 	} else {
 		jsonResponse(w, http.StatusOK, Response{
 			Success: true,
-			Status:  "Disconnected from Discord",
+			Status:  "Disconnected from Fluxer",
 		})
 	}
 }
 
 type respPing struct {
-	Discord struct {
+	Fluxer struct {
 		ID        string `json:"id,omitempty"`
 		LoggedIn  bool   `json:"logged_in"`
 		Connected bool   `json:"connected"`
@@ -217,12 +217,12 @@ func (p *ProvisioningAPI) ping(w http.ResponseWriter, r *http.Request) {
 		MXID:           user.MXID,
 		ManagementRoom: user.ManagementRoom,
 	}
-	resp.Discord.LoggedIn = user.IsLoggedIn()
-	resp.Discord.Connected = user.Connected()
-	resp.Discord.ID = user.DiscordID
+	resp.Fluxer.LoggedIn = user.IsLoggedIn()
+	resp.Fluxer.Connected = user.Connected()
+	resp.Fluxer.ID = user.FluxerID
 	if user.Session != nil {
-		resp.Discord.Conn.LastHeartbeatAck = user.Session.LastHeartbeatAck.UnixMilli()
-		resp.Discord.Conn.LastHeartbeatSent = user.Session.LastHeartbeatSent.UnixMilli()
+		resp.Fluxer.Conn.LastHeartbeatAck = user.Session.LastHeartbeatAck.UnixMilli()
+		resp.Fluxer.Conn.LastHeartbeatSent = user.Session.LastHeartbeatSent.UnixMilli()
 	}
 	jsonResponse(w, http.StatusOK, resp)
 }
@@ -230,7 +230,7 @@ func (p *ProvisioningAPI) ping(w http.ResponseWriter, r *http.Request) {
 func (p *ProvisioningAPI) logout(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*User)
 	var msg string
-	if user.DiscordID != "" {
+	if user.FluxerID != "" {
 		msg = "Logged out successfully."
 	} else {
 		msg = "User wasn't logged in."
@@ -277,13 +277,13 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 
 	if user.IsLoggedIn() {
 		_ = c.WriteJSON(Error{
-			Error:   "You're already logged into Discord",
+			Error:   "You're already logged into Fluxer",
 			ErrCode: ErrCodeAlreadyLoggedIn,
 		})
 		return
 	}
 
-	client, err := remoteauth.New()
+	client, err := handoff.New()
 	if err != nil {
 		log.Errorln("Failed to prepare login:", err)
 		_ = c.WriteJSON(Error{
@@ -300,11 +300,11 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 
 	err = client.Dial(ctx, qrChan, doneChan)
 	if err != nil {
-		log.Errorln("Failed to connect to Discord login websocket:", err)
+		log.Errorln("Failed to connect to Fluxer login websocket:", err)
 		close(qrChan)
 		close(doneChan)
 		_ = c.WriteJSON(Error{
-			Error:   "Failed to connect to Discord login websocket",
+			Error:   "Failed to connect to Fluxer login websocket",
 			ErrCode: ErrCodeLoginConnectionFailed,
 		})
 		return
@@ -324,10 +324,10 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 				log.Errorln("Failed to write QR code to websocket:", err)
 			}
 		case <-doneChan:
-			var discordUser remoteauth.User
-			discordUser, err = client.Result()
+			var fluxerUser handoff.User
+			fluxerUser, err = client.Result()
 			if err != nil {
-				log.Errorln("Discord login websocket returned error:", err)
+				log.Errorln("Fluxer login websocket returned error:", err)
 				_ = c.WriteJSON(Error{
 					Error:   "Failed to log in",
 					ErrCode: ErrCodeLoginFailed,
@@ -335,12 +335,12 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			log.Infofln("Logged in as %s#%s (%s)", discordUser.Username, discordUser.Discriminator, discordUser.UserID)
+			log.Infofln("Logged in as %s#%s (%s)", fluxerUser.Username, fluxerUser.Discriminator, fluxerUser.UserID)
 
-			if err = user.Login(discordUser.Token); err != nil {
+			if err = user.Login(fluxerUser.Token); err != nil {
 				log.Errorln("Failed to connect after logging in:", err)
 				_ = c.WriteJSON(Error{
-					Error:   "Failed to connect to Discord after logging in",
+					Error:   "Failed to connect to Fluxer after logging in",
 					ErrCode: ErrCodePostLoginConnFailed,
 				})
 				return
@@ -348,9 +348,9 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 
 			err = c.WriteJSON(respLogin{
 				Success:       true,
-				ID:            user.DiscordID,
-				Username:      discordUser.Username,
-				Discriminator: discordUser.Discriminator,
+				ID:            user.FluxerID,
+				Username:      fluxerUser.Username,
+				Discriminator: fluxerUser.Discriminator,
 			})
 			if err != nil {
 				log.Errorln("Failed to write login success to websocket:", err)
@@ -379,7 +379,7 @@ func (p *ProvisioningAPI) tokenLogin(w http.ResponseWriter, r *http.Request) {
 	log := p.log.Sub("TokenLogin").Sub(user.MXID.String())
 	if user.IsLoggedIn() {
 		jsonResponse(w, http.StatusConflict, Error{
-			Error:   "You're already logged into Discord",
+			Error:   "You're already logged into Fluxer",
 			ErrCode: ErrCodeAlreadyLoggedIn,
 		})
 		return
@@ -396,7 +396,7 @@ func (p *ProvisioningAPI) tokenLogin(w http.ResponseWriter, r *http.Request) {
 	if err := user.Login(body.Token); err != nil {
 		log.Errorln("Failed to connect with provided token:", err)
 		jsonResponse(w, http.StatusUnauthorized, Error{
-			Error:   "Failed to connect to Discord",
+			Error:   "Failed to connect to Fluxer",
 			ErrCode: ErrCodePostLoginConnFailed,
 		})
 		return
@@ -404,7 +404,7 @@ func (p *ProvisioningAPI) tokenLogin(w http.ResponseWriter, r *http.Request) {
 	log.Infoln("Successfully logged in")
 	jsonResponse(w, http.StatusOK, respLogin{
 		Success:       true,
-		ID:            user.DiscordID,
+		ID:            user.FluxerID,
 		Username:      user.Session.State.User.Username,
 		Discriminator: user.Session.State.User.Discriminator,
 	})
@@ -415,7 +415,7 @@ func (p *ProvisioningAPI) reconnect(w http.ResponseWriter, r *http.Request) {
 
 	if user.Connected() {
 		jsonResponse(w, http.StatusConflict, Error{
-			Error:   "You're already connected to discord",
+			Error:   "You're already connected to fluxer",
 			ErrCode: ErrCodeAlreadyConnected,
 		})
 
@@ -424,13 +424,13 @@ func (p *ProvisioningAPI) reconnect(w http.ResponseWriter, r *http.Request) {
 
 	if err := user.Connect(); err != nil {
 		jsonResponse(w, http.StatusInternalServerError, Error{
-			Error:   "Failed to connect to discord",
+			Error:   "Failed to connect to fluxer",
 			ErrCode: ErrCodeConnectFailed,
 		})
 	} else {
 		jsonResponse(w, http.StatusOK, Response{
 			Success: true,
-			Status:  "Connected to Discord",
+			Status:  "Connected to Fluxer",
 		})
 	}
 }
@@ -454,7 +454,7 @@ func (p *ProvisioningAPI) guildsList(w http.ResponseWriter, r *http.Request) {
 	var resp respGuildsList
 	resp.Guilds = []guildEntry{}
 	for _, userGuild := range user.GetPortals() {
-		guild := p.bridge.GetGuildByID(userGuild.DiscordID, false)
+		guild := p.bridge.GetGuildByID(userGuild.FluxerID, false)
 		if guild == nil {
 			continue
 		}
