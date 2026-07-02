@@ -87,7 +87,7 @@ CREATE TABLE "user" (
     mxid TEXT PRIMARY KEY,
     dcid TEXT UNIQUE,
 
-    discord_token   TEXT,
+    fluxer_token   TEXT,
     management_room TEXT,
     space_room      TEXT,
     dm_space_room   TEXT,
@@ -97,13 +97,13 @@ CREATE TABLE "user" (
 );
 
 CREATE TABLE user_portal (
-    discord_id TEXT,
+    fluxer_id TEXT,
     user_mxid  TEXT,
     type       TEXT NOT NULL,
     in_space   BOOLEAN NOT NULL,
     timestamp  BIGINT NOT NULL,
 
-    PRIMARY KEY (discord_id, user_mxid),
+    PRIMARY KEY (fluxer_id, user_mxid),
     CONSTRAINT up_user_fkey FOREIGN KEY (user_mxid) REFERENCES "user" (mxid) ON DELETE CASCADE
 );
 
@@ -159,7 +159,7 @@ CREATE TABLE role (
     CONSTRAINT role_guild_fkey FOREIGN KEY (dc_guild_id) REFERENCES guild (dcid) ON DELETE CASCADE
 );
 
-CREATE TABLE discord_file (
+CREATE TABLE fluxer_file (
     url       TEXT,
     encrypted BOOLEAN,
     mxc       TEXT NOT NULL,
@@ -177,4 +177,4 @@ CREATE TABLE discord_file (
     PRIMARY KEY (url, encrypted)
 );
 
-CREATE INDEX discord_file_mxc_idx ON discord_file (mxc);
+CREATE INDEX fluxer_file_mxc_idx ON fluxer_file (mxc);

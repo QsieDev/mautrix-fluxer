@@ -1,5 +1,5 @@
 # Features & roadmap
-* Matrix → Discord
+* Matrix → Fluxer
   * [ ] Message content
     * [x] Plain text
     * [x] Formatted messages
@@ -10,8 +10,8 @@
   * [x] Message redactions
   * [x] Reactions
     * [x] Unicode emojis
-    * [ ] Custom emojis (re-reacting with custom emojis sent from Discord already works)
-  * [ ] Executing Discord bot commands
+    * [ ] Custom emojis (re-reacting with custom emojis sent from Fluxer already works)
+  * [ ] Executing Fluxer bot commands
     * [x] Basic arguments and subcommands
     * [ ] Subcommand groups
     * [ ] Mention arguments
@@ -29,7 +29,7 @@
     * [ ] Avatar
     * [ ] Topic
   * [ ] Initial room metadata
-* Discord → Matrix
+* Fluxer → Matrix
   * [ ] Message content
     * [x] Plain text
     * [x] Formatted messages
@@ -75,5 +75,5 @@
   * [x] Automatic portal creation
     * [x] After login
     * [x] When receiving DM
-  * [ ] Private chat creation by inviting Matrix puppet of Discord user to new room
-  * [x] Option to use own Matrix account for messages sent from other Discord clients
+  * [ ] Private chat creation by inviting Matrix puppet of Fluxer user to new room
+  * [x] Option to use own Matrix account for messages sent from other Fluxer clients

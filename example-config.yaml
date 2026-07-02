@@ -9,7 +9,7 @@ homeserver:
     # Standard Matrix homeservers like Synapse, Dendrite and Conduit should just use "standard" here.
     software: standard
     # The URL to push real-time bridge status to.
-    # If set, the bridge will make POST requests to this URL whenever a user's discord connection state changes.
+    # If set, the bridge will make POST requests to this URL whenever a user's Fluxer connection state changes.
     # The bridge will use the appservice as_token to authorize requests.
     status_endpoint: null
     # Endpoint for reporting per-message status.
@@ -53,14 +53,14 @@ appservice:
         max_conn_lifetime: null
 
     # The unique ID of this appservice.
-    id: discord
+    id: fluxer
     # Appservice bot details.
     bot:
         # Username of the appservice bot.
-        username: discordbot
+        username: fluxerbot
         # Display name and avatar for bot. Set to "remove" to remove display name/avatar, leave empty
         # to leave display name/avatar as-is.
-        displayname: Discord bridge bot
+        displayname: Fluxer bridge bot
         avatar: mxc://maunium.net/nIdEykemnwdisvHbpxflpDlC
 
     # Whether or not to receive ephemeral events via appservice transactions.
@@ -84,29 +84,29 @@ bridge:
     # Base URL of the Fluxer media CDN to connect to. Leave empty to use the
     # default public instance (https://media.fluxer.app/).
     cdn_url:
-    # Localpart template of MXIDs for Discord users.
-    # {{.}} is replaced with the internal ID of the Discord user.
-    username_template: discord_{{.}}
-    # Displayname template for Discord users. This is also used as the room name in DMs if private_chat_portal_meta is enabled.
+    # Localpart template of MXIDs for Fluxer users.
+    # {{.}} is replaced with the internal ID of the Fluxer user.
+    username_template: fluxer_{{.}}
+    # Displayname template for Fluxer users. This is also used as the room name in DMs if private_chat_portal_meta is enabled.
     # Available variables:
     #   .ID - Internal user ID
-    #   .Username - Legacy display/username on Discord
-    #   .GlobalName - New displayname on Discord
-    #   .Discriminator - The 4 numbers after the name on Discord
+    #   .Username - Legacy display/username on Fluxer
+    #   .GlobalName - New displayname on Fluxer
+    #   .Discriminator - The 4 numbers after the name on Fluxer
     #   .Bot - Whether the user is a bot
     #   .System - Whether the user is an official system user
     #   .Webhook - Whether the user is a webhook and is not an application
     #   .Application - Whether the user is an application
     displayname_template: '{{if .Webhook}}Webhook{{else}}{{or .GlobalName .Username}}{{if .Bot}} (bot){{end}}{{end}}'
-    # Displayname template for Discord channels (bridged as rooms, or spaces when type=4).
+    # Displayname template for Fluxer channels (bridged as rooms, or spaces when type=4).
     # Available variables:
     #   .Name - Channel name, or user displayname (pre-formatted with displayname_template) in DMs.
     #   .ParentName - Parent channel name (used for categories).
     #   .GuildName - Guild name.
     #   .NSFW - Whether the channel is marked as NSFW.
-    #   .Type - Channel type (see values at https://github.com/bwmarrin/discordgo/blob/v0.25.0/structs.go#L251-L267)
+    #   .Type - Channel type (see values at https://github.com/qsiedev/fluxergo/blob/main/structs.go)
     channel_name_template: '{{if or (eq .Type 3) (eq .Type 4)}}{{.Name}}{{else}}#{{.Name}}{{end}}'
-    # Displayname template for Discord guilds (bridged as spaces).
+    # Displayname template for Fluxer guilds (bridged as spaces).
     # Available variables:
     #   .Name - Guild name
     guild_name_template: '{{.Name}}'
@@ -116,8 +116,8 @@ bridge:
     # If set to `never`, DM rooms will never have names and avatars set.
     private_chat_portal_meta: default
 
-    # Publicly accessible base URL that Discord can use to reach the bridge, used for avatars in relay mode.
-    # If not set, avatars will not be bridged. Only the /mautrix-discord/avatar/{server}/{id}/{hash} endpoint is used on this address.
+    # Publicly accessible base URL that Fluxer can use to reach the bridge, used for avatars in relay mode.
+    # If not set, avatars will not be bridged. Only the /mautrix-fluxer/avatar/{server}/{id}/{hash} endpoint is used on this address.
     # This should not have a trailing slash, the endpoint above will be appended to the provided address.
     public_address: null
     # A random key used to sign the avatar URLs. The bridge will only accept requests with a valid signature.
@@ -128,7 +128,7 @@ bridge:
     # Number of private channel portals to create on bridge startup.
     # Other portals will be created when receiving messages.
     startup_private_channel_create_limit: 5
-    # Should the bridge send a read receipt from the bridge bot when a message has been sent to Discord?
+    # Should the bridge send a read receipt from the bridge bot when a message has been sent to Fluxer?
     delivery_receipts: false
     # Whether the bridge should send the message status as a custom com.beeper.message_send_status event.
     message_status_events: false
@@ -137,14 +137,14 @@ bridge:
     # Should the bridge use space-restricted join rules instead of invite-only for guild rooms?
     # This can avoid unnecessary invite events in guild rooms when members are synced in.
     restricted_rooms: false
-    # Should the bridge automatically join the user to threads on Discord when the thread is opened on Matrix?
+    # Should the bridge automatically join the user to threads on Fluxer when the thread is opened on Matrix?
     # This only works with clients that support thread read receipts (MSC3771 added in Matrix v1.4).
     autojoin_thread_on_open: true
-    # Should inline fields in Discord embeds be bridged as HTML tables to Matrix?
-    # Tables aren't supported in all clients, but are the only way to emulate the Discord inline field UI.
+    # Should inline fields in Fluxer embeds be bridged as HTML tables to Matrix?
+    # Tables aren't supported in all clients, but are the only way to emulate the Fluxer inline field UI.
     embed_fields_as_tables: true
     # Should guild channels be muted when the portal is created? This only meant for single-user instances,
-    # it won't mute it for all users if there are multiple Matrix users in the same Discord guild.
+    # it won't mute it for all users if there are multiple Matrix users in the same Fluxer guild.
     mute_channels_on_create: false
     # Should the bridge update the m.direct account data event when double puppeting is enabled.
     # Note that updating the m.direct event is not atomic (except with mautrix-asmux)
@@ -156,10 +156,10 @@ bridge:
     # Should incoming custom emoji reactions be bridged as mxc:// URIs?
     # If set to false, custom emoji reactions will be bridged as the shortcode instead, and the image won't be available.
     custom_emoji_reactions: true
-    # Should the bridge attempt to completely delete portal rooms when a channel is deleted on Discord?
+    # Should the bridge attempt to completely delete portal rooms when a channel is deleted on Fluxer?
     # If true, the bridge will try to kick Matrix users from the room. Otherwise, the bridge only makes ghosts leave.
     delete_portal_on_channel_delete: false
-    # Should the bridge delete all portal rooms when you leave a guild on Discord?
+    # Should the bridge delete all portal rooms when you leave a guild on Fluxer?
     # This only applies if the guild has no other Matrix users on this bridge instance.
     delete_guild_on_leave: true
     # Whether or not created rooms should have federation enabled.
@@ -173,21 +173,21 @@ bridge:
     prefix_webhook_messages: true
     # Bridge webhook avatars?
     enable_webhook_avatars: false
-    # Should the bridge upload media to the Discord CDN directly before sending the message when using a user token,
+    # Should the bridge upload media to the Fluxer CDN directly before sending the message when using a user token,
     # like the official client does? The other option is sending the media in the message send request as a form part
     # (which is always used by bots and webhooks).
-    use_discord_cdn_upload: true
-    # Should the bridge forbid direct messages from users to other users who they aren't friends with? Discord generally
+    use_fluxer_cdn_upload: true
+    # Should the bridge forbid direct messages from users to other users who they aren't friends with? Fluxer generally
     # considers this to be a "risky" action. Note that the bridge will conservatively reject all outgoing DMs from users
-    # until it has synced that user's relationships from Discord.
+    # until it has synced that user's relationships from Fluxer.
     forbid_dming_strangers: true
-    # Proxy for Discord connections
+    # Proxy for Fluxer connections
     proxy:
-    # Should mxc uris copied from Discord be cached?
+    # Should mxc uris copied from Fluxer be cached?
     # This can be `never` to never cache, `unencrypted` to only cache unencrypted mxc uris, or `always` to cache everything.
     # If you have a media repo that generates non-unique mxc uris, you should set this to never.
     cache_media: unencrypted
-    # Settings for converting Discord media to custom mxc:// URIs instead of reuploading.
+    # Settings for converting Fluxer media to custom mxc:// URIs instead of reuploading.
     # More details can be found at https://docs.mau.fi/bridges/go/discord/direct-media.html
     direct_media:
         # Should custom mxc:// URIs be used instead of reuploading media?
@@ -195,7 +195,7 @@ bridge:
         # The server name to use for the custom mxc:// URIs.
         # This server name will effectively be a real Matrix server, it just won't implement anything other than media.
         # You must either set up .well-known delegation from this domain to the bridge, or proxy the domain directly to the bridge.
-        server_name: discord-media.example.com
+        server_name: fluxer-media.example.com
         # Optionally a custom .well-known response. This defaults to `server_name:443`
         well_known_response:
         # The bridge supports MSC3860 media download redirects and will use them if the requester supports it.
@@ -232,12 +232,12 @@ bridge:
         example.com: foobar
 
     # The prefix for commands. Only required in non-management rooms.
-    command_prefix: '!discord'
+    command_prefix: '!fluxer'
     # Messages sent upon joining a management room.
     # Markdown is supported. The defaults are listed below.
     management_room_text:
         # Sent when joining a room.
-        welcome: "Hello, I'm a Discord bridge bot."
+        welcome: "Hello, I'm a Fluxer bridge bot."
         # Sent when joining a management room and the user is already logged in.
         welcome_connected: "Use `help` for help."
         # Sent when joining a management room and the user is not logged in.
@@ -366,7 +366,7 @@ bridge:
     # Permissions for using the bridge.
     # Permitted values:
     #    relay - Talk through the relaybot (if enabled), no access otherwise
-    #     user - Access to use the bridge to chat with a Discord account.
+    #     user - Access to use the bridge to chat with a Fluxer account.
     #    admin - User level and some additional administration tools
     # Permitted keys:
     #        * - All Matrix users
@@ -385,7 +385,7 @@ logging:
       format: pretty-colored
     - type: file
       format: json
-      filename: ./logs/mautrix-discord.log
+      filename: ./logs/mautrix-fluxer.log
       max_size: 100
       max_backups: 10
       compress: true

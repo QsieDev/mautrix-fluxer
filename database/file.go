@@ -19,9 +19,9 @@ type FileQuery struct {
 
 // language=postgresql
 const (
-	fileSelect = "SELECT url, encrypted, mxc, id, emoji_name, size, width, height, mime_type, decryption_info, timestamp FROM discord_file"
+	fileSelect = "SELECT url, encrypted, mxc, id, emoji_name, size, width, height, mime_type, decryption_info, timestamp FROM fluxer_file"
 	fileInsert = `
-		INSERT INTO discord_file (url, encrypted, mxc, id, emoji_name, size, width, height, mime_type, decryption_info, timestamp)
+		INSERT INTO fluxer_file (url, encrypted, mxc, id, emoji_name, size, width, height, mime_type, decryption_info, timestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 )
@@ -130,7 +130,7 @@ func (f *File) Insert(txn dbutil.Execable) {
 }
 
 func (f *File) Delete() {
-	_, err := f.db.Exec("DELETE FROM discord_file WHERE url=$1 AND encrypted=$2", f.URL, f.Encrypted)
+	_, err := f.db.Exec("DELETE FROM fluxer_file WHERE url=$1 AND encrypted=$2", f.URL, f.Encrypted)
 	if err != nil {
 		f.log.Warnfln("Failed to delete copied file %v: %v", f.MXC, err)
 		panic(err)

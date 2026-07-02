@@ -14,13 +14,13 @@ CREATE TABLE guild (
 );
 
 CREATE TABLE user_portal (
-    discord_id TEXT,
+    fluxer_id TEXT,
     user_mxid  TEXT,
     type       TEXT NOT NULL,
     in_space   BOOLEAN NOT NULL,
     timestamp  BIGINT NOT NULL,
 
-    PRIMARY KEY (discord_id, user_mxid),
+    PRIMARY KEY (fluxer_id, user_mxid),
     CONSTRAINT up_user_fkey FOREIGN KEY (user_mxid) REFERENCES "user" (mxid) ON DELETE CASCADE
 );
 
@@ -53,7 +53,7 @@ ALTER TABLE puppet ALTER COLUMN avatar_set DROP DEFAULT;
 
 ALTER TABLE "user" ADD COLUMN space_room TEXT;
 ALTER TABLE "user" ADD COLUMN dm_space_room TEXT;
-ALTER TABLE "user" RENAME COLUMN token TO discord_token;
+ALTER TABLE "user" RENAME COLUMN token TO fluxer_token;
 
 UPDATE message SET timestamp=timestamp*1000;
 

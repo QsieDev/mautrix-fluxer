@@ -22,19 +22,19 @@ func (uq *UserQuery) New() *User {
 }
 
 func (uq *UserQuery) GetByMXID(userID id.UserID) *User {
-	query := `SELECT mxid, dcid, discord_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session FROM "user" WHERE mxid=$1`
+	query := `SELECT mxid, dcid, fluxer_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session FROM "user" WHERE mxid=$1`
 	return uq.New().Scan(uq.db.QueryRow(query, userID))
 }
 
 func (uq *UserQuery) GetByID(id string) *User {
-	query := `SELECT mxid, dcid, discord_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session FROM "user" WHERE dcid=$1`
+	query := `SELECT mxid, dcid, fluxer_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session FROM "user" WHERE dcid=$1`
 	return uq.New().Scan(uq.db.QueryRow(query, id))
 }
 
 func (uq *UserQuery) GetAllWithToken() []*User {
 	query := `
-		SELECT mxid, dcid, discord_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session
-		FROM "user" WHERE discord_token IS NOT NULL
+		SELECT mxid, dcid, fluxer_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session
+		FROM "user" WHERE fluxer_token IS NOT NULL
 	`
 	rows, err := uq.db.Query(query)
 	if err != nil || rows == nil {
@@ -85,7 +85,7 @@ func (u *User) Scan(row dbutil.Scannable) *User {
 }
 
 func (u *User) Insert() {
-	query := `INSERT INTO "user" (mxid, dcid, discord_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	query := `INSERT INTO "user" (mxid, dcid, fluxer_token, management_room, space_room, dm_space_room, read_state_version, heartbeat_session) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	_, err := u.db.Exec(query, u.MXID, strPtr(u.FluxerID), strPtr(u.FluxerToken), strPtr(string(u.ManagementRoom)), strPtr(string(u.SpaceRoom)), strPtr(string(u.DMSpaceRoom)), u.ReadStateVersion, JSONPtr(u.HeartbeatSession))
 	if err != nil {
 		u.log.Warnfln("Failed to insert %s: %v", u.MXID, err)
@@ -94,7 +94,7 @@ func (u *User) Insert() {
 }
 
 func (u *User) Update() {
-	query := `UPDATE "user" SET dcid=$1, discord_token=$2, management_room=$3, space_room=$4, dm_space_room=$5, read_state_version=$6, heartbeat_session=$7 WHERE mxid=$8`
+	query := `UPDATE "user" SET dcid=$1, fluxer_token=$2, management_room=$3, space_room=$4, dm_space_room=$5, read_state_version=$6, heartbeat_session=$7 WHERE mxid=$8`
 	_, err := u.db.Exec(query, strPtr(u.FluxerID), strPtr(u.FluxerToken), strPtr(string(u.ManagementRoom)), strPtr(string(u.SpaceRoom)), strPtr(string(u.DMSpaceRoom)), u.ReadStateVersion, JSONPtr(u.HeartbeatSession), u.MXID)
 	if err != nil {
 		u.log.Warnfln("Failed to update %q: %v", u.MXID, err)
