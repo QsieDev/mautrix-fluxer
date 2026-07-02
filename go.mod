@@ -1,4 +1,4 @@
-module go.mau.fi/mautrix-fluxer
+module github.com/qsiedev/mautrix-fluxer
 
 go 1.25.0
 

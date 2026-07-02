@@ -35,8 +35,8 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-fluxer/config"
-	"go.mau.fi/mautrix-fluxer/database"
+	"github.com/qsiedev/mautrix-fluxer/config"
+	"github.com/qsiedev/mautrix-fluxer/database"
 )
 
 type portalFluxerMessage struct {

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/slices"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-fluxer/database"
+	"github.com/qsiedev/mautrix-fluxer/database"
 )
 
 type Thread struct {

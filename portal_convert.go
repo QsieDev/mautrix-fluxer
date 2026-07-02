@@ -35,7 +35,7 @@ import (
 	"maunium.net/go/mautrix/format"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-fluxer/database"
+	"github.com/qsiedev/mautrix-fluxer/database"
 )
 
 type ConvertedMessage struct {

@@ -14,7 +14,7 @@ import (
 	"maunium.net/go/mautrix/bridge"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-fluxer/database"
+	"github.com/qsiedev/mautrix-fluxer/database"
 )
 
 type Puppet struct {

@@ -19,8 +19,8 @@ import (
 	"maunium.net/go/mautrix/bridge/bridgeconfig"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-fluxer/database"
-	"go.mau.fi/mautrix-fluxer/handoff"
+	"github.com/qsiedev/mautrix-fluxer/database"
+	"github.com/qsiedev/mautrix-fluxer/handoff"
 )
 
 const (

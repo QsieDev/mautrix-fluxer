@@ -32,7 +32,7 @@ import (
 	"github.com/yuin/goldmark/util"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-fluxer/database"
+	"github.com/qsiedev/mautrix-fluxer/database"
 )
 
 type astFluxerTag struct {
