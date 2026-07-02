@@ -28,18 +28,18 @@ const (
 )
 
 const (
-	ErrCodeNotConnected          = "FI.MAU.DISCORD.NOT_CONNECTED"
-	ErrCodeAlreadyLoggedIn       = "FI.MAU.DISCORD.ALREADY_LOGGED_IN"
-	ErrCodeAlreadyConnected      = "FI.MAU.DISCORD.ALREADY_CONNECTED"
-	ErrCodeConnectFailed         = "FI.MAU.DISCORD.CONNECT_FAILED"
-	ErrCodeDisconnectFailed      = "FI.MAU.DISCORD.DISCONNECT_FAILED"
+	ErrCodeNotConnected          = "FI.MAU.FLUXER.NOT_CONNECTED"
+	ErrCodeAlreadyLoggedIn       = "FI.MAU.FLUXER.ALREADY_LOGGED_IN"
+	ErrCodeAlreadyConnected      = "FI.MAU.FLUXER.ALREADY_CONNECTED"
+	ErrCodeConnectFailed         = "FI.MAU.FLUXER.CONNECT_FAILED"
+	ErrCodeDisconnectFailed      = "FI.MAU.FLUXER.DISCONNECT_FAILED"
 	ErrCodeGuildBridgeFailed     = "M_UNKNOWN"
 	ErrCodeGuildUnbridgeFailed   = "M_UNKNOWN"
-	ErrCodeGuildNotBridged       = "FI.MAU.DISCORD.GUILD_NOT_BRIDGED"
-	ErrCodeLoginPrepareFailed    = "FI.MAU.DISCORD.LOGIN_PREPARE_FAILED"
-	ErrCodeLoginConnectionFailed = "FI.MAU.DISCORD.LOGIN_CONN_FAILED"
-	ErrCodeLoginFailed           = "FI.MAU.DISCORD.LOGIN_FAILED"
-	ErrCodePostLoginConnFailed   = "FI.MAU.DISCORD.POST_LOGIN_CONNECTION_FAILED"
+	ErrCodeGuildNotBridged       = "FI.MAU.FLUXER.GUILD_NOT_BRIDGED"
+	ErrCodeLoginPrepareFailed    = "FI.MAU.FLUXER.LOGIN_PREPARE_FAILED"
+	ErrCodeLoginConnectionFailed = "FI.MAU.FLUXER.LOGIN_CONN_FAILED"
+	ErrCodeLoginFailed           = "FI.MAU.FLUXER.LOGIN_FAILED"
+	ErrCodePostLoginConnFailed   = "FI.MAU.FLUXER.POST_LOGIN_CONNECTION_FAILED"
 )
 
 type ProvisioningAPI struct {

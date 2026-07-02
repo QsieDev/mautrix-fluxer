@@ -594,7 +594,7 @@ func (user *User) Connect() error {
 	if user.bridge.Config.Bridge.Proxy != "" {
 		u, _ := url.Parse(user.bridge.Config.Bridge.Proxy)
 		tlsConf := &tls.Config{
-			InsecureSkipVerify: os.Getenv("DISCORD_SKIP_TLS_VERIFICATION") == "true",
+			InsecureSkipVerify: os.Getenv("FLUXER_SKIP_TLS_VERIFICATION") == "true",
 		}
 		session.Client.Transport = &http.Transport{
 			Proxy:             http.ProxyURL(u),
@@ -605,7 +605,7 @@ func (user *User) Connect() error {
 		session.Dialer.TLSClientConfig = tlsConf
 	}
 	// TODO move to config
-	if os.Getenv("DISCORD_DEBUG") == "1" {
+	if os.Getenv("FLUXER_DEBUG") == "1" {
 		session.LogLevel = fluxergo.LogDebug
 	} else {
 		session.LogLevel = fluxergo.LogInformational

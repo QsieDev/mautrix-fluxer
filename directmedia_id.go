@@ -27,7 +27,7 @@ import (
 	"io"
 )
 
-const MediaIDPrefix = "\U0001F408DISCORD"
+const MediaIDPrefix = "\U0001F408FLUXER"
 const MediaIDVersion = 1
 
 type MediaIDClass uint8
