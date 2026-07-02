@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 
 	"maunium.net/go/mautrix/bridge/bridgeconfig"
 )
@@ -200,12 +200,12 @@ func (bc BridgeConfig) FormatUsername(userID string) string {
 }
 
 type DisplaynameParams struct {
-	*discordgo.User
+	*fluxergo.User
 	Webhook     bool
 	Application bool
 }
 
-func (bc BridgeConfig) FormatDisplayname(user *discordgo.User, webhook, application bool) string {
+func (bc BridgeConfig) FormatDisplayname(user *fluxergo.User, webhook, application bool) string {
 	var buffer strings.Builder
 	_ = bc.displaynameTemplate.Execute(&buffer, &DisplaynameParams{
 		User:        user,
@@ -220,7 +220,7 @@ type ChannelNameParams struct {
 	ParentName string
 	GuildName  string
 	NSFW       bool
-	Type       discordgo.ChannelType
+	Type       fluxergo.ChannelType
 }
 
 func (bc BridgeConfig) FormatChannelName(params ChannelNameParams) string {

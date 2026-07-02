@@ -28,10 +28,10 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 
-	"go.mau.fi/mautrix-discord/config"
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/config"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type Guild struct {
@@ -161,7 +161,7 @@ func (guild *Guild) UpdateBridgeInfo() {
 	}
 }
 
-func (guild *Guild) CreateMatrixRoom(user *User, meta *discordgo.Guild) error {
+func (guild *Guild) CreateMatrixRoom(user *User, meta *fluxergo.Guild) error {
 	guild.roomCreateLock.Lock()
 	defer guild.roomCreateLock.Unlock()
 	if guild.MXID != "" {
@@ -226,7 +226,7 @@ func (guild *Guild) CreateMatrixRoom(user *User, meta *discordgo.Guild) error {
 	return nil
 }
 
-func (guild *Guild) UpdateInfo(source *User, meta *discordgo.Guild) *discordgo.Guild {
+func (guild *Guild) UpdateInfo(source *User, meta *fluxergo.Guild) *fluxergo.Guild {
 	if meta.Unavailable {
 		guild.log.Debugfln("Ignoring unavailable guild update")
 		return meta
@@ -242,7 +242,7 @@ func (guild *Guild) UpdateInfo(source *User, meta *discordgo.Guild) *discordgo.G
 	return meta
 }
 
-func (guild *Guild) UpdateName(meta *discordgo.Guild) bool {
+func (guild *Guild) UpdateName(meta *fluxergo.Guild) bool {
 	name := guild.bridge.Config.Bridge.FormatGuildName(config.GuildNameParams{
 		Name: meta.Name,
 	})
@@ -274,7 +274,7 @@ func (guild *Guild) UpdateAvatar(iconID string) bool {
 	guild.AvatarURL = id.ContentURI{}
 	if guild.Avatar != "" {
 		// TODO direct media support
-		copied, err := guild.bridge.copyAttachmentToMatrix(guild.bridge.Bot, discordgo.EndpointGuildIcon(guild.ID, iconID), false, AttachmentMeta{
+		copied, err := guild.bridge.copyAttachmentToMatrix(guild.bridge.Bot, fluxergo.EndpointGuildIcon(guild.ID, iconID), false, AttachmentMeta{
 			AttachmentID: fmt.Sprintf("guild_avatar/%s/%s", guild.ID, iconID),
 		})
 		if err != nil {

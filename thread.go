@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 	"golang.org/x/exp/slices"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type Thread struct {
@@ -78,7 +78,7 @@ func (br *DiscordBridge) loadThread(dbThread *database.Thread, id string, root *
 	return thread
 }
 
-func (br *DiscordBridge) threadFound(ctx context.Context, source *User, rootMessage *database.Message, id string, metadata *discordgo.Channel) {
+func (br *DiscordBridge) threadFound(ctx context.Context, source *User, rootMessage *database.Message, id string, metadata *fluxergo.Channel) {
 	thread := br.GetThreadByID(id, rootMessage)
 	log := zerolog.Ctx(ctx)
 	log.Debug().Msg("Marked message as thread root")
@@ -112,8 +112,8 @@ func (thread *Thread) maybeInitialBackfill(source *User) {
 	thread.Parent.forwardBackfillInitial(source, thread)
 }
 
-func (thread *Thread) RefererOpt() discordgo.RequestOption {
-	return discordgo.WithThreadReferer(thread.Parent.GuildID, thread.ParentID, thread.ID)
+func (thread *Thread) RefererOpt() fluxergo.RequestOption {
+	return fluxergo.WithThreadReferer(thread.Parent.GuildID, thread.ParentID, thread.ID)
 }
 
 func (thread *Thread) Join(user *User) {
@@ -141,7 +141,7 @@ func (thread *Thread) Join(user *User) {
 
 	var err error
 	if user.Session.IsUser {
-		err = user.Session.ThreadJoin(thread.ID, discordgo.WithLocationParam(discordgo.ThreadJoinLocationContextMenu), thread.RefererOpt())
+		err = user.Session.ThreadJoin(thread.ID, fluxergo.WithLocationParam(fluxergo.ThreadJoinLocationContextMenu), thread.RefererOpt())
 	} else {
 		err = user.Session.ThreadJoin(thread.ID)
 	}

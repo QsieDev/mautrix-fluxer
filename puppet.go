@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 
 	"maunium.net/go/mautrix"
@@ -14,7 +14,7 @@ import (
 	"maunium.net/go/mautrix/bridge"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type Puppet struct {
@@ -194,7 +194,7 @@ func (puppet *Puppet) updatePortalMeta(meta func(portal *Portal)) {
 	}
 }
 
-func (puppet *Puppet) UpdateName(info *discordgo.User) bool {
+func (puppet *Puppet) UpdateName(info *fluxergo.User) bool {
 	newName := puppet.bridge.Config.Bridge.FormatDisplayname(info, puppet.IsWebhook, puppet.IsApplication)
 	if puppet.Name == newName && puppet.NameSet {
 		return false
@@ -220,15 +220,15 @@ func (br *DiscordBridge) reuploadUserAvatar(intent *appservice.IntentAPI, guildI
 	var downloadURL string
 	if guildID == "" {
 		if strings.HasPrefix(avatarID, "a_") {
-			downloadURL = discordgo.EndpointUserAvatarAnimated(userID, avatarID)
+			downloadURL = fluxergo.EndpointUserAvatarAnimated(userID, avatarID)
 		} else {
-			downloadURL = discordgo.EndpointUserAvatar(userID, avatarID)
+			downloadURL = fluxergo.EndpointUserAvatar(userID, avatarID)
 		}
 	} else {
 		if strings.HasPrefix(avatarID, "a_") {
-			downloadURL = discordgo.EndpointGuildMemberAvatarAnimated(guildID, userID, avatarID)
+			downloadURL = fluxergo.EndpointGuildMemberAvatarAnimated(guildID, userID, avatarID)
 		} else {
-			downloadURL = discordgo.EndpointGuildMemberAvatar(guildID, userID, avatarID)
+			downloadURL = fluxergo.EndpointGuildMemberAvatar(guildID, userID, avatarID)
 		}
 	}
 	url := br.DMA.AvatarMXC(guildID, userID, avatarID)
@@ -244,7 +244,7 @@ func (br *DiscordBridge) reuploadUserAvatar(intent *appservice.IntentAPI, guildI
 	return copied.MXC, downloadURL, nil
 }
 
-func (puppet *Puppet) UpdateAvatar(info *discordgo.User) bool {
+func (puppet *Puppet) UpdateAvatar(info *fluxergo.User) bool {
 	avatarID := info.Avatar
 	if puppet.IsWebhook && !puppet.bridge.Config.Bridge.EnableWebhookAvatars {
 		avatarID = ""
@@ -281,7 +281,7 @@ func (puppet *Puppet) UpdateAvatar(info *discordgo.User) bool {
 	return true
 }
 
-func (puppet *Puppet) UpdateInfo(source *User, info *discordgo.User, message *discordgo.Message) {
+func (puppet *Puppet) UpdateInfo(source *User, info *fluxergo.User, message *fluxergo.Message) {
 	puppet.syncLock.Lock()
 	defer puppet.syncLock.Unlock()
 
@@ -331,7 +331,7 @@ func (puppet *Puppet) UpdateInfo(source *User, info *discordgo.User, message *di
 	}
 }
 
-func (puppet *Puppet) UpdateContactInfo(info *discordgo.User) bool {
+func (puppet *Puppet) UpdateContactInfo(info *fluxergo.User) bool {
 	changed := false
 	if puppet.Username != info.Username {
 		puppet.Username = info.Username

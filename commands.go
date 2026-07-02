@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/skip2/go-qrcode"
 
 	"maunium.net/go/mautrix"
@@ -37,8 +37,8 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
-	"go.mau.fi/mautrix-discord/remoteauth"
+	"go.mau.fi/mautrix-fluxer/database"
+	"go.mau.fi/mautrix-fluxer/handoff"
 )
 
 type WrappedCommandEvent struct {
@@ -179,7 +179,7 @@ func fnLoginQR(ce *WrappedCommandEvent) {
 		return
 	}
 
-	client, err := remoteauth.New()
+	client, err := handoff.New()
 	if err != nil {
 		ce.Reply("Failed to prepare login: %v", err)
 		return
@@ -213,7 +213,7 @@ func fnLoginQR(ce *WrappedCommandEvent) {
 
 	user, err := client.Result()
 	if err != nil || len(user.Token) == 0 {
-		if restErr := (&discordgo.RESTError{}); errors.As(err, &restErr) &&
+		if restErr := (&fluxergo.RESTError{}); errors.As(err, &restErr) &&
 			restErr.Response.StatusCode == http.StatusBadRequest &&
 			bytes.Contains(restErr.ResponseBody, []byte("captcha-required")) {
 			ce.Reply("Error logging in: %v\n\nCAPTCHAs are currently not supported - use token login instead", err)
@@ -446,7 +446,7 @@ func fnSetRelay(ce *WrappedCommandEvent) {
 		return
 	}
 	createType := strings.ToLower(strings.TrimLeft(ce.Args[0], "-"))
-	var webhookMeta *discordgo.Webhook
+	var webhookMeta *fluxergo.Webhook
 	switch createType {
 	case "url":
 		if len(ce.Args) < 2 {
@@ -474,7 +474,7 @@ func fnSetRelay(ce *WrappedCommandEvent) {
 			log.Warn().Err(err).Msg("Failed to check user permissions")
 			ce.Reply("Failed to check if you have permission to create webhooks")
 			return
-		} else if perms&discordgo.PermissionManageWebhooks == 0 {
+		} else if perms&fluxergo.PermissionManageWebhooks == 0 {
 			log.Debug().Int64("perms", perms).Msg("User doesn't have permissions to manage webhooks in channel")
 			ce.Reply("You don't have permission to manage webhooks in that channel")
 			return

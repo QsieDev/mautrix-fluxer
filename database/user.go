@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"go.mau.fi/util/dbutil"
 	log "maunium.net/go/maulogger/v2"
 	"maunium.net/go/mautrix/id"
@@ -61,7 +61,7 @@ type User struct {
 	ManagementRoom   id.RoomID
 	SpaceRoom        id.RoomID
 	DMSpaceRoom      id.RoomID
-	HeartbeatSession *discordgo.HeartbeatSession
+	HeartbeatSession *fluxergo.HeartbeatSession
 
 	ReadStateVersion int
 }

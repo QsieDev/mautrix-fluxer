@@ -17,8 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/gorilla/websocket"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 	"go.mau.fi/util/dbutil"
 	"maunium.net/go/mautrix"
@@ -30,7 +30,7 @@ import (
 	"maunium.net/go/mautrix/id"
 	"maunium.net/go/mautrix/pushrules"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 var (
@@ -52,7 +52,7 @@ type User struct {
 	spaceMembershipChecked   bool
 	dmSpaceMembershipChecked bool
 
-	Session *discordgo.Session
+	Session *fluxergo.Session
 
 	BridgeState     *bridge.BridgeStateQueue
 	bridgeStateLock sync.Mutex
@@ -67,7 +67,7 @@ type User struct {
 
 	nextDiscordUploadID atomic.Int32
 
-	relationships map[string]*discordgo.Relationship
+	relationships map[string]*fluxergo.Relationship
 	// relationshipsReady should be protected by relationshipLock and is merely
 	// used to cover the brief moment in time where the readyHandler goroutine
 	// is being scheduled; during that time, the relationships map is unlocked
@@ -94,13 +94,13 @@ var discordLog zerolog.Logger
 
 func discordToZeroLevel(level int) zerolog.Level {
 	switch level {
-	case discordgo.LogError:
+	case fluxergo.LogError:
 		return zerolog.ErrorLevel
-	case discordgo.LogWarning:
+	case fluxergo.LogWarning:
 		return zerolog.WarnLevel
-	case discordgo.LogInformational:
+	case fluxergo.LogInformational:
 		return zerolog.InfoLevel
-	case discordgo.LogDebug:
+	case fluxergo.LogDebug:
 		fallthrough
 	default:
 		return zerolog.DebugLevel
@@ -108,7 +108,7 @@ func discordToZeroLevel(level int) zerolog.Level {
 }
 
 func init() {
-	discordgo.Logger = func(msgL, caller int, format string, a ...interface{}) {
+	fluxergo.Logger = func(msgL, caller int, format string, a ...interface{}) {
 		discordLog.WithLevel(discordToZeroLevel(msgL)).Caller(caller+1).Msgf(strings.TrimSpace(format), a...) // zerolog-allow-msgf
 	}
 }
@@ -221,7 +221,7 @@ func (br *DiscordBridge) NewUser(dbUser *database.User) *User {
 
 		pendingInteractions: make(map[string]*WrappedCommandEvent),
 
-		relationships: make(map[string]*discordgo.Relationship),
+		relationships: make(map[string]*fluxergo.Relationship),
 	}
 	user.nextDiscordUploadID.Store(rand.Int31n(100))
 	user.BridgeState = br.NewBridgeStateQueue(user)
@@ -518,7 +518,7 @@ func (user *User) Logout(isOverwriting bool) {
 	user.log.Info().Msg("User logged out")
 }
 
-func (user *User) reconstructRelationships(relationships []*discordgo.Relationship) {
+func (user *User) reconstructRelationships(relationships []*fluxergo.Relationship) {
 	user.relationshipLock.Lock()
 	defer user.relationshipLock.Unlock()
 
@@ -545,23 +545,23 @@ func (user *User) Connected() bool {
 	return user.Session != nil
 }
 
-const BotIntents = discordgo.IntentGuilds |
-	discordgo.IntentGuildMessages |
-	discordgo.IntentGuildMessageReactions |
-	discordgo.IntentGuildMessageTyping |
-	discordgo.IntentGuildBans |
-	discordgo.IntentGuildEmojis |
-	discordgo.IntentGuildIntegrations |
-	discordgo.IntentGuildInvites |
-	//discordgo.IntentGuildVoiceStates |
-	//discordgo.IntentGuildScheduledEvents |
-	discordgo.IntentDirectMessages |
-	discordgo.IntentDirectMessageTyping |
-	discordgo.IntentDirectMessageTyping |
+const BotIntents = fluxergo.IntentGuilds |
+	fluxergo.IntentGuildMessages |
+	fluxergo.IntentGuildMessageReactions |
+	fluxergo.IntentGuildMessageTyping |
+	fluxergo.IntentGuildBans |
+	fluxergo.IntentGuildEmojis |
+	fluxergo.IntentGuildIntegrations |
+	fluxergo.IntentGuildInvites |
+	//fluxergo.IntentGuildVoiceStates |
+	//fluxergo.IntentGuildScheduledEvents |
+	fluxergo.IntentDirectMessages |
+	fluxergo.IntentDirectMessageTyping |
+	fluxergo.IntentDirectMessageTyping |
 	// Privileged intents
-	discordgo.IntentMessageContent |
-	//discordgo.IntentGuildPresences |
-	discordgo.IntentGuildMembers
+	fluxergo.IntentMessageContent |
+	//fluxergo.IntentGuildPresences |
+	fluxergo.IntentGuildMembers
 
 func (user *User) Connect() error {
 	user.Lock()
@@ -576,14 +576,14 @@ func (user *User) Connect() error {
 
 	user.log.Debug().Msg("Connecting to discord")
 
-	session, err := discordgo.New(user.DiscordToken)
+	session, err := fluxergo.New(user.DiscordToken)
 	if err != nil {
 		return err
 	}
 
 	if user.HeartbeatSession == nil || user.HeartbeatSession.IsExpired() {
 		user.log.Debug().Msg("Creating new heartbeat session")
-		sess := discordgo.NewHeartbeatSession()
+		sess := fluxergo.NewHeartbeatSession()
 		user.HeartbeatSession = &sess
 	}
 	user.HeartbeatSession.BumpLastUsed()
@@ -606,9 +606,9 @@ func (user *User) Connect() error {
 	}
 	// TODO move to config
 	if os.Getenv("DISCORD_DEBUG") == "1" {
-		session.LogLevel = discordgo.LogDebug
+		session.LogLevel = fluxergo.LogDebug
 	} else {
-		session.LogLevel = discordgo.LogInformational
+		session.LogLevel = fluxergo.LogInformational
 	}
 	userDiscordLog := user.log.With().
 		Str("component", "discordgo").
@@ -633,7 +633,7 @@ func (user *User) Connect() error {
 
 	for {
 		err = user.Session.Open()
-		if errors.Is(err, discordgo.ErrImmediateDisconnect) {
+		if errors.Is(err, fluxergo.ErrImmediateDisconnect) {
 			user.log.Warn().Err(err).Msg("Retrying initial connection in 5 seconds")
 			time.Sleep(5 * time.Second)
 			continue
@@ -657,65 +657,65 @@ func (user *User) eventHandler(rawEvt any) {
 		}
 	}()
 	switch evt := rawEvt.(type) {
-	case *discordgo.Ready:
+	case *fluxergo.Ready:
 		user.readyHandler(evt)
-	case *discordgo.Resumed:
+	case *fluxergo.Resumed:
 		user.resumeHandler(evt)
-	case *discordgo.Connect:
+	case *fluxergo.Connect:
 		user.connectedHandler(evt)
-	case *discordgo.Disconnect:
+	case *fluxergo.Disconnect:
 		user.disconnectedHandler(evt)
-	case *discordgo.InvalidAuth:
+	case *fluxergo.InvalidAuth:
 		user.invalidAuthHandler(evt)
-	case *discordgo.GuildCreate:
+	case *fluxergo.GuildCreate:
 		user.guildCreateHandler(evt)
-	case *discordgo.GuildDelete:
+	case *fluxergo.GuildDelete:
 		user.guildDeleteHandler(evt)
-	case *discordgo.GuildUpdate:
+	case *fluxergo.GuildUpdate:
 		user.guildUpdateHandler(evt)
-	case *discordgo.GuildRoleCreate:
+	case *fluxergo.GuildRoleCreate:
 		user.discordRoleToDB(evt.GuildID, evt.Role, nil, nil)
-	case *discordgo.GuildRoleUpdate:
+	case *fluxergo.GuildRoleUpdate:
 		user.discordRoleToDB(evt.GuildID, evt.Role, nil, nil)
-	case *discordgo.GuildRoleDelete:
+	case *fluxergo.GuildRoleDelete:
 		user.bridge.DB.Role.DeleteByID(evt.GuildID, evt.RoleID)
-	case *discordgo.ChannelCreate:
+	case *fluxergo.ChannelCreate:
 		user.channelCreateHandler(evt)
-	case *discordgo.ChannelDelete:
+	case *fluxergo.ChannelDelete:
 		user.channelDeleteHandler(evt)
-	case *discordgo.ChannelUpdate:
+	case *fluxergo.ChannelUpdate:
 		user.channelUpdateHandler(evt)
-	case *discordgo.ChannelRecipientAdd:
+	case *fluxergo.ChannelRecipientAdd:
 		user.channelRecipientAdd(evt)
-	case *discordgo.ChannelRecipientRemove:
+	case *fluxergo.ChannelRecipientRemove:
 		user.channelRecipientRemove(evt)
-	case *discordgo.RelationshipAdd:
+	case *fluxergo.RelationshipAdd:
 		user.relationshipAddHandler(evt)
-	case *discordgo.RelationshipRemove:
+	case *fluxergo.RelationshipRemove:
 		user.relationshipRemoveHandler(evt)
-	case *discordgo.RelationshipUpdate:
+	case *fluxergo.RelationshipUpdate:
 		user.relationshipUpdateHandler(evt)
-	case *discordgo.MessageCreate:
+	case *fluxergo.MessageCreate:
 		user.pushPortalMessage(evt, "message create", evt.ChannelID, evt.GuildID)
-	case *discordgo.MessageDelete:
+	case *fluxergo.MessageDelete:
 		user.pushPortalMessage(evt, "message delete", evt.ChannelID, evt.GuildID)
-	case *discordgo.MessageDeleteBulk:
+	case *fluxergo.MessageDeleteBulk:
 		user.pushPortalMessage(evt, "bulk message delete", evt.ChannelID, evt.GuildID)
-	case *discordgo.MessageUpdate:
+	case *fluxergo.MessageUpdate:
 		user.pushPortalMessage(evt, "message update", evt.ChannelID, evt.GuildID)
-	case *discordgo.MessageReactionAdd:
+	case *fluxergo.MessageReactionAdd:
 		user.pushPortalMessage(evt, "reaction add", evt.ChannelID, evt.GuildID)
-	case *discordgo.MessageReactionRemove:
+	case *fluxergo.MessageReactionRemove:
 		user.pushPortalMessage(evt, "reaction remove", evt.ChannelID, evt.GuildID)
-	case *discordgo.MessageAck:
+	case *fluxergo.MessageAck:
 		user.messageAckHandler(evt)
-	case *discordgo.TypingStart:
+	case *fluxergo.TypingStart:
 		user.typingStartHandler(evt)
-	case *discordgo.InteractionSuccess:
+	case *fluxergo.InteractionSuccess:
 		user.interactionSuccessHandler(evt)
-	case *discordgo.ThreadListSync:
+	case *fluxergo.ThreadListSync:
 		user.threadListSyncHandler(evt)
-	case *discordgo.Event:
+	case *fluxergo.Event:
 		// Ignore
 	default:
 		user.log.Debug().Type("event_type", evt).Msg("Unhandled event")
@@ -749,7 +749,7 @@ func (user *User) getGuildBridgingMode(guildID string) database.GuildBridgingMod
 	return guild.BridgingMode
 }
 
-type ChannelSlice []*discordgo.Channel
+type ChannelSlice []*fluxergo.Channel
 
 func (s ChannelSlice) Len() int {
 	return len(s)
@@ -766,7 +766,7 @@ func (s ChannelSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (user *User) readyHandler(r *discordgo.Ready) {
+func (user *User) readyHandler(r *fluxergo.Ready) {
 	user.log.Debug().Msg("Discord connection ready")
 	user.bridgeStateLock.Lock()
 	user.wasLoggedOut = false
@@ -810,7 +810,7 @@ func (user *User) readyHandler(r *discordgo.Ready) {
 	if r.ReadState != nil && r.ReadState.Version > user.ReadStateVersion {
 		// TODO can we figure out which read states are actually new?
 		for _, entry := range r.ReadState.Entries {
-			user.messageAckHandler(&discordgo.MessageAck{
+			user.messageAckHandler(&fluxergo.MessageAck{
 				MessageID: string(entry.LastMessageID),
 				ChannelID: entry.ID,
 			})
@@ -832,7 +832,7 @@ func (user *User) subscribeGuilds(delay time.Duration) {
 		guild := user.bridge.GetGuildByID(guildMeta.ID, false)
 		if guild != nil && guild.MXID != "" {
 			user.log.Debug().Str("guild_id", guild.ID).Msg("Subscribing to guild")
-			dat := discordgo.GuildSubscribeData{
+			dat := fluxergo.GuildSubscribeData{
 				GuildID:    guild.ID,
 				Typing:     true,
 				Activities: true,
@@ -847,7 +847,7 @@ func (user *User) subscribeGuilds(delay time.Duration) {
 	}
 }
 
-func (user *User) resumeHandler(_ *discordgo.Resumed) {
+func (user *User) resumeHandler(_ *fluxergo.Resumed) {
 	user.log.Debug().Msg("Discord connection resumed")
 	user.subscribeGuilds(0 * time.Second)
 	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateConnected})
@@ -870,7 +870,7 @@ func (user *User) addPrivateChannelToSpace(portal *Portal) bool {
 	}
 }
 
-func (user *User) relationshipAddHandler(r *discordgo.RelationshipAdd) {
+func (user *User) relationshipAddHandler(r *fluxergo.RelationshipAdd) {
 	user.log.Debug().Interface("relationship", r.Relationship).Msg("Relationship added")
 	user.relationshipLock.Lock()
 	defer user.relationshipLock.Unlock()
@@ -878,7 +878,7 @@ func (user *User) relationshipAddHandler(r *discordgo.RelationshipAdd) {
 	user.handleRelationshipChange(r.ID, r.Nickname)
 }
 
-func (user *User) relationshipUpdateHandler(r *discordgo.RelationshipUpdate) {
+func (user *User) relationshipUpdateHandler(r *fluxergo.RelationshipUpdate) {
 	user.relationshipLock.Lock()
 	defer user.relationshipLock.Unlock()
 	user.log.Debug().Interface("relationship", r.Relationship).Msg("Relationship update")
@@ -886,7 +886,7 @@ func (user *User) relationshipUpdateHandler(r *discordgo.RelationshipUpdate) {
 	user.handleRelationshipChange(r.ID, r.Nickname)
 }
 
-func (user *User) relationshipRemoveHandler(r *discordgo.RelationshipRemove) {
+func (user *User) relationshipRemoveHandler(r *fluxergo.RelationshipRemove) {
 	user.relationshipLock.Lock()
 	defer user.relationshipLock.Unlock()
 	user.log.Debug().Str("other_user_id", r.ID).Msg("Relationship removed")
@@ -925,7 +925,7 @@ func (user *User) handleRelationshipChange(userID, nickname string) {
 	}
 }
 
-func (user *User) handlePrivateChannel(portal *Portal, meta *discordgo.Channel, timestamp time.Time, create, isInSpace bool) {
+func (user *User) handlePrivateChannel(portal *Portal, meta *fluxergo.Channel, timestamp time.Time, create, isInSpace bool) {
 	if create && portal.MXID == "" {
 		err := portal.CreateMatrixRoom(user, meta)
 		if err != nil {
@@ -967,7 +967,7 @@ func (user *User) addGuildToSpace(guild *Guild, isInSpace bool, timestamp time.T
 	return isInSpace
 }
 
-func (user *User) discordRoleToDB(guildID string, role *discordgo.Role, dbRole *database.Role, txn dbutil.Execable) bool {
+func (user *User) discordRoleToDB(guildID string, role *fluxergo.Role, dbRole *database.Role, txn dbutil.Execable) bool {
 	var changed bool
 	if dbRole == nil {
 		dbRole = user.bridge.DB.Role.New()
@@ -991,7 +991,7 @@ func (user *User) discordRoleToDB(guildID string, role *discordgo.Role, dbRole *
 	return changed
 }
 
-func (user *User) handleGuildRoles(guildID string, newRoles []*discordgo.Role) {
+func (user *User) handleGuildRoles(guildID string, newRoles []*fluxergo.Role) {
 	existingRoles := user.bridge.DB.Role.GetAll(guildID)
 	existingRoleMap := make(map[string]*database.Role, len(existingRoles))
 	for _, role := range existingRoles {
@@ -1020,7 +1020,7 @@ func (user *User) handleGuildRoles(guildID string, newRoles []*discordgo.Role) {
 	}
 }
 
-func (user *User) handleGuild(meta *discordgo.Guild, timestamp time.Time, isInSpace bool) {
+func (user *User) handleGuild(meta *fluxergo.Guild, timestamp time.Time, isInSpace bool) {
 	guild := user.bridge.GetGuildByID(meta.ID, true)
 	guild.UpdateInfo(user, meta)
 	if len(meta.Channels) > 0 {
@@ -1051,7 +1051,7 @@ func (user *User) handleGuild(meta *discordgo.Guild, timestamp time.Time, isInSp
 	user.addGuildToSpace(guild, isInSpace, timestamp)
 }
 
-func (user *User) connectedHandler(_ *discordgo.Connect) {
+func (user *User) connectedHandler(_ *fluxergo.Connect) {
 	user.bridgeStateLock.Lock()
 	defer user.bridgeStateLock.Unlock()
 	user.log.Debug().Msg("Connected to Discord")
@@ -1060,7 +1060,7 @@ func (user *User) connectedHandler(_ *discordgo.Connect) {
 	}
 }
 
-func (user *User) disconnectedHandler(_ *discordgo.Disconnect) {
+func (user *User) disconnectedHandler(_ *fluxergo.Disconnect) {
 	user.bridgeStateLock.Lock()
 	defer user.bridgeStateLock.Unlock()
 	if user.wasLoggedOut {
@@ -1072,7 +1072,7 @@ func (user *User) disconnectedHandler(_ *discordgo.Disconnect) {
 	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateTransientDisconnect, Error: "dc-transient-disconnect", Message: "Temporarily disconnected from Discord, trying to reconnect"})
 }
 
-func (user *User) invalidAuthHandler(_ *discordgo.InvalidAuth) {
+func (user *User) invalidAuthHandler(_ *fluxergo.InvalidAuth) {
 	user.bridgeStateLock.Lock()
 	defer user.bridgeStateLock.Unlock()
 	user.log.Info().Msg("Got logged out from Discord due to invalid token")
@@ -1082,15 +1082,15 @@ func (user *User) invalidAuthHandler(_ *discordgo.InvalidAuth) {
 }
 
 func (user *User) handlePossible40002(err error) bool {
-	var restErr *discordgo.RESTError
-	if !errors.As(err, &restErr) || restErr.Message == nil || restErr.Message.Code != discordgo.ErrCodeActionRequiredVerifiedAccount {
+	var restErr *fluxergo.RESTError
+	if !errors.As(err, &restErr) || restErr.Message == nil || restErr.Message.Code != fluxergo.ErrCodeActionRequiredVerifiedAccount {
 		return false
 	}
 	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateBadCredentials, Error: "dc-http-40002", Message: restErr.Message.Message})
 	return true
 }
 
-func (user *User) guildCreateHandler(g *discordgo.GuildCreate) {
+func (user *User) guildCreateHandler(g *fluxergo.GuildCreate) {
 	user.log.Info().
 		Str("guild_id", g.ID).
 		Str("name", g.Name).
@@ -1099,7 +1099,7 @@ func (user *User) guildCreateHandler(g *discordgo.GuildCreate) {
 	user.handleGuild(g.Guild, time.Now(), false)
 }
 
-func (user *User) guildDeleteHandler(g *discordgo.GuildDelete) {
+func (user *User) guildDeleteHandler(g *fluxergo.GuildDelete) {
 	if g.Unavailable {
 		user.log.Info().Str("guild_id", g.ID).Msg("Ignoring guild delete event with unavailable flag")
 		return
@@ -1119,12 +1119,12 @@ func (user *User) guildDeleteHandler(g *discordgo.GuildDelete) {
 	}
 }
 
-func (user *User) guildUpdateHandler(g *discordgo.GuildUpdate) {
+func (user *User) guildUpdateHandler(g *fluxergo.GuildUpdate) {
 	user.log.Debug().Str("guild_id", g.ID).Msg("Got guild update event")
 	user.handleGuild(g.Guild, time.Now(), user.IsInSpace(g.ID))
 }
 
-func (user *User) threadListSyncHandler(t *discordgo.ThreadListSync) {
+func (user *User) threadListSyncHandler(t *fluxergo.ThreadListSync) {
 	for _, meta := range t.Threads {
 		log := user.log.With().
 			Str("action", "thread list sync").
@@ -1148,7 +1148,7 @@ func (user *User) threadListSyncHandler(t *discordgo.ThreadListSync) {
 	}
 }
 
-func (user *User) channelCreateHandler(c *discordgo.ChannelCreate) {
+func (user *User) channelCreateHandler(c *fluxergo.ChannelCreate) {
 	if user.getGuildBridgingMode(c.GuildID) < database.GuildBridgeEverything {
 		user.log.Debug().
 			Str("guild_id", c.GuildID).Str("channel_id", c.ID).
@@ -1178,7 +1178,7 @@ func (user *User) channelCreateHandler(c *discordgo.ChannelCreate) {
 	}
 }
 
-func (user *User) channelDeleteHandler(c *discordgo.ChannelDelete) {
+func (user *User) channelDeleteHandler(c *fluxergo.ChannelDelete) {
 	portal := user.GetExistingPortalByID(c.ID)
 	if portal == nil {
 		user.log.Debug().
@@ -1199,7 +1199,7 @@ func (user *User) channelDeleteHandler(c *discordgo.ChannelDelete) {
 		Msg("Completed cleaning up channel")
 }
 
-func (user *User) channelUpdateHandler(c *discordgo.ChannelUpdate) {
+func (user *User) channelUpdateHandler(c *fluxergo.ChannelUpdate) {
 	portal := user.GetPortalByMeta(c.Channel)
 	if c.GuildID == "" {
 		user.handlePrivateChannel(portal, c.Channel, time.Now(), true, user.IsInSpace(portal.Key.String()))
@@ -1208,14 +1208,14 @@ func (user *User) channelUpdateHandler(c *discordgo.ChannelUpdate) {
 	}
 }
 
-func (user *User) channelRecipientAdd(c *discordgo.ChannelRecipientAdd) {
+func (user *User) channelRecipientAdd(c *fluxergo.ChannelRecipientAdd) {
 	portal := user.GetExistingPortalByID(c.ChannelID)
 	if portal != nil {
 		portal.syncParticipant(user, c.User, false)
 	}
 }
 
-func (user *User) channelRecipientRemove(c *discordgo.ChannelRecipientRemove) {
+func (user *User) channelRecipientRemove(c *fluxergo.ChannelRecipientRemove) {
 	portal := user.GetExistingPortalByID(c.ChannelID)
 	if portal != nil {
 		portal.syncParticipant(user, c.User, true)
@@ -1320,7 +1320,7 @@ func (user *User) makeReadMarkerContent(eventID id.EventID) *CustomReadMarkers {
 	}
 }
 
-func (user *User) messageAckHandler(m *discordgo.MessageAck) {
+func (user *User) messageAckHandler(m *fluxergo.MessageAck) {
 	portal := user.GetExistingPortalByID(m.ChannelID)
 	if portal == nil || portal.MXID == "" {
 		return
@@ -1353,7 +1353,7 @@ func (user *User) messageAckHandler(m *discordgo.MessageAck) {
 	}
 }
 
-func (user *User) typingStartHandler(t *discordgo.TypingStart) {
+func (user *User) typingStartHandler(t *fluxergo.TypingStart) {
 	if t.UserID == user.DiscordID {
 		return
 	}
@@ -1368,7 +1368,7 @@ func (user *User) typingStartHandler(t *discordgo.TypingStart) {
 	portal.handleDiscordTyping(t)
 }
 
-func (user *User) interactionSuccessHandler(s *discordgo.InteractionSuccess) {
+func (user *User) interactionSuccessHandler(s *fluxergo.InteractionSuccess) {
 	user.pendingInteractionsLock.Lock()
 	defer user.pendingInteractionsLock.Unlock()
 	ce, ok := user.pendingInteractions[s.Nonce]
@@ -1519,7 +1519,7 @@ func (user *User) bridgeGuild(guildID string, everything bool) error {
 	user.addGuildToSpace(guild, false, time.Now())
 	for _, ch := range meta.Channels {
 		portal := user.GetPortalByMeta(ch)
-		if (everything && user.channelIsBridgeable(ch)) || ch.Type == discordgo.ChannelTypeGuildCategory {
+		if (everything && user.channelIsBridgeable(ch)) || ch.Type == fluxergo.ChannelTypeGuildCategory {
 			err = portal.CreateMatrixRoom(user, ch)
 			if err != nil {
 				log.Error().Err(err).Str("channel_id", ch.ID).
@@ -1536,7 +1536,7 @@ func (user *User) bridgeGuild(guildID string, everything bool) error {
 
 	if user.Session.IsUser {
 		log.Debug().Msg("Subscribing to guild after bridging")
-		err = user.Session.SubscribeGuild(discordgo.GuildSubscribeData{
+		err = user.Session.SubscribeGuild(fluxergo.GuildSubscribeData{
 			GuildID:    guild.ID,
 			Typing:     true,
 			Activities: true,

@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
@@ -145,7 +145,7 @@ func (br *DiscordBridge) pillConverter(displayname, mxid, eventID string, ctx fo
 		if allowedMentions != nil && !slices.Contains(allowedMentions, id.UserID(mxid)) {
 			return displayname
 		}
-		mentions := ctx.ReturnData[formatterContextAllowedMentionsKey].(*discordgo.MessageAllowedMentions)
+		mentions := ctx.ReturnData[formatterContextAllowedMentionsKey].(*fluxergo.MessageAllowedMentions)
 		parsedID, ok := br.ParsePuppetMXID(id.UserID(mxid))
 		if ok {
 			mentions.Users = appendIfNotContains(mentions.Users, parsedID)
@@ -239,9 +239,9 @@ var matrixHTMLParser = &format.HTMLParser{
 	},
 }
 
-func (portal *Portal) parseMatrixHTML(content *event.MessageEventContent, allowedLinkPreviews []string) (string, *discordgo.MessageAllowedMentions) {
-	allowedMentions := &discordgo.MessageAllowedMentions{
-		Parse:       []discordgo.AllowedMentionType{},
+func (portal *Portal) parseMatrixHTML(content *event.MessageEventContent, allowedLinkPreviews []string) (string, *fluxergo.MessageAllowedMentions) {
+	allowedMentions := &fluxergo.MessageAllowedMentions{
+		Parse:       []fluxergo.AllowedMentionType{},
 		Users:       []string{},
 		RepliedUser: true,
 	}

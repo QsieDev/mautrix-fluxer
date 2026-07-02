@@ -37,15 +37,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/gorilla/mux"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/federation"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/config"
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/config"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type DirectMediaAPI struct {
@@ -188,7 +188,7 @@ func parseExpiryTS(addr string) time.Time {
 	return time.Time{}
 }
 
-func (dma *DirectMediaAPI) addAttachmentToCache(channelID uint64, att *discordgo.MessageAttachment) time.Time {
+func (dma *DirectMediaAPI) addAttachmentToCache(channelID uint64, att *fluxergo.MessageAttachment) time.Time {
 	attachmentID, err := strconv.ParseUint(att.ID, 10, 64)
 	if err != nil {
 		return time.Time{}
@@ -207,7 +207,7 @@ func (dma *DirectMediaAPI) addAttachmentToCache(channelID uint64, att *discordgo
 	return expiry
 }
 
-func (dma *DirectMediaAPI) AttachmentMXC(channelID, messageID string, att *discordgo.MessageAttachment) (mxc id.ContentURI) {
+func (dma *DirectMediaAPI) AttachmentMXC(channelID, messageID string, att *fluxergo.MessageAttachment) (mxc id.ContentURI) {
 	if dma == nil {
 		return
 	}
@@ -254,7 +254,7 @@ func (dma *DirectMediaAPI) EmojiMXC(emojiID, name string, animated bool) (mxc id
 	})
 }
 
-func (dma *DirectMediaAPI) StickerMXC(stickerID string, format discordgo.StickerFormat) (mxc id.ContentURI) {
+func (dma *DirectMediaAPI) StickerMXC(stickerID string, format fluxergo.StickerFormat) (mxc id.ContentURI) {
 	if dma == nil {
 		return
 	}
@@ -326,7 +326,7 @@ var ErrNoUsersWithAccessFound = errors.New("no users found to fetch message")
 var ErrAttachmentNotFound = errors.New("attachment not found")
 
 func (dma *DirectMediaAPI) fetchNewAttachmentURL(ctx context.Context, meta *AttachmentMediaData) (string, time.Time, error) {
-	var client *discordgo.Session
+	var client *fluxergo.Session
 	channelIDStr := strconv.FormatUint(meta.ChannelID, 10)
 	portal := dma.bridge.GetExistingPortalByID(database.PortalKey{ChannelID: channelIDStr})
 	var users []id.UserID
@@ -341,7 +341,7 @@ func (dma *DirectMediaAPI) fetchNewAttachmentURL(ctx context.Context, meta *Atta
 			continue
 		}
 		perms, err := user.Session.State.UserChannelPermissions(user.DiscordID, channelIDStr)
-		if err == nil && perms&discordgo.PermissionViewChannel == 0 {
+		if err == nil && perms&fluxergo.PermissionViewChannel == 0 {
 			continue
 		}
 		if client == nil || err == nil {
@@ -354,19 +354,19 @@ func (dma *DirectMediaAPI) fetchNewAttachmentURL(ctx context.Context, meta *Atta
 	if client == nil {
 		return "", time.Time{}, ErrNoUsersWithAccessFound
 	}
-	var msgs []*discordgo.Message
+	var msgs []*fluxergo.Message
 	var err error
 	messageIDStr := strconv.FormatUint(meta.MessageID, 10)
 	if client.IsUser {
-		var refs []discordgo.RequestOption
+		var refs []fluxergo.RequestOption
 		if portal != nil {
-			refs = append(refs, discordgo.WithChannelReferer(portal.GuildID, channelIDStr))
+			refs = append(refs, fluxergo.WithChannelReferer(portal.GuildID, channelIDStr))
 		}
 		msgs, err = client.ChannelMessages(channelIDStr, 5, "", "", messageIDStr, refs...)
 	} else {
-		var msg *discordgo.Message
+		var msg *fluxergo.Message
 		msg, err = client.ChannelMessage(channelIDStr, messageIDStr)
-		msgs = []*discordgo.Message{msg}
+		msgs = []*fluxergo.Message{msg}
 	}
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("failed to fetch message: %w", err)
@@ -448,36 +448,36 @@ func (dma *DirectMediaAPI) getMediaURL(ctx context.Context, encodedMediaID strin
 		}
 	case *EmojiMediaData:
 		if mediaData.Animated {
-			url = discordgo.EndpointEmojiAnimated(strconv.FormatUint(mediaData.EmojiID, 10))
+			url = fluxergo.EndpointEmojiAnimated(strconv.FormatUint(mediaData.EmojiID, 10))
 		} else {
-			url = discordgo.EndpointEmoji(strconv.FormatUint(mediaData.EmojiID, 10))
+			url = fluxergo.EndpointEmoji(strconv.FormatUint(mediaData.EmojiID, 10))
 		}
 	case *StickerMediaData:
-		url = discordgo.EndpointStickerImage(
+		url = fluxergo.EndpointStickerImage(
 			strconv.FormatUint(mediaData.StickerID, 10),
-			discordgo.StickerFormat(mediaData.Format),
+			fluxergo.StickerFormat(mediaData.Format),
 		)
 	case *UserAvatarMediaData:
 		if mediaData.Animated {
-			url = discordgo.EndpointUserAvatarAnimated(
+			url = fluxergo.EndpointUserAvatarAnimated(
 				strconv.FormatUint(mediaData.UserID, 10),
 				fmt.Sprintf("a_%x", mediaData.AvatarID),
 			)
 		} else {
-			url = discordgo.EndpointUserAvatar(
+			url = fluxergo.EndpointUserAvatar(
 				strconv.FormatUint(mediaData.UserID, 10),
 				fmt.Sprintf("%x", mediaData.AvatarID),
 			)
 		}
 	case *GuildMemberAvatarMediaData:
 		if mediaData.Animated {
-			url = discordgo.EndpointGuildMemberAvatarAnimated(
+			url = fluxergo.EndpointGuildMemberAvatarAnimated(
 				strconv.FormatUint(mediaData.GuildID, 10),
 				strconv.FormatUint(mediaData.UserID, 10),
 				fmt.Sprintf("a_%x", mediaData.AvatarID),
 			)
 		} else {
-			url = discordgo.EndpointGuildMemberAvatar(
+			url = fluxergo.EndpointGuildMemberAvatar(
 				strconv.FormatUint(mediaData.GuildID, 10),
 				strconv.FormatUint(mediaData.UserID, 10),
 				fmt.Sprintf("%x", mediaData.AvatarID),
@@ -505,7 +505,7 @@ func (dma *DirectMediaAPI) proxyDownload(ctx context.Context, w http.ResponseWri
 		})
 		return
 	}
-	for key, val := range discordgo.DroidDownloadHeaders {
+	for key, val := range fluxergo.DroidDownloadHeaders {
 		req.Header.Set(key, val)
 	}
 	resp, err := dma.proxy.Do(req)

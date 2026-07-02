@@ -19,8 +19,8 @@ import (
 	"maunium.net/go/mautrix/bridge/bridgeconfig"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
-	"go.mau.fi/mautrix-discord/remoteauth"
+	"go.mau.fi/mautrix-fluxer/database"
+	"go.mau.fi/mautrix-fluxer/handoff"
 )
 
 const (
@@ -283,7 +283,7 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := remoteauth.New()
+	client, err := handoff.New()
 	if err != nil {
 		log.Errorln("Failed to prepare login:", err)
 		_ = c.WriteJSON(Error{
@@ -324,7 +324,7 @@ func (p *ProvisioningAPI) qrLogin(w http.ResponseWriter, r *http.Request) {
 				log.Errorln("Failed to write QR code to websocket:", err)
 			}
 		case <-doneChan:
-			var discordUser remoteauth.User
+			var discordUser handoff.User
 			discordUser, err = client.Result()
 			if err != nil {
 				log.Errorln("Discord login websocket returned error:", err)

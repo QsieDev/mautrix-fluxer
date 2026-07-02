@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/google/shlex"
+	"github.com/qsiedev/fluxergo"
 
 	"maunium.net/go/mautrix/bridge/commands"
 )
@@ -56,7 +56,7 @@ var cmdExec = &commands.FullHandler{
 	RequiresPortal: true,
 }
 
-func (portal *Portal) getCommand(user *User, command string) (*discordgo.ApplicationCommand, error) {
+func (portal *Portal) getCommand(user *User, command string) (*fluxergo.ApplicationCommand, error) {
 	portal.commandsLock.Lock()
 	defer portal.commandsLock.Unlock()
 	cmd, ok := portal.commands[command]
@@ -79,56 +79,56 @@ func (portal *Portal) getCommand(user *User, command string) (*discordgo.Applica
 	return cmd, nil
 }
 
-func getCommandOptionTypeName(optType discordgo.ApplicationCommandOptionType) string {
+func getCommandOptionTypeName(optType fluxergo.ApplicationCommandOptionType) string {
 	switch optType {
-	case discordgo.ApplicationCommandOptionSubCommand:
+	case fluxergo.ApplicationCommandOptionSubCommand:
 		return "subcommand"
-	case discordgo.ApplicationCommandOptionSubCommandGroup:
+	case fluxergo.ApplicationCommandOptionSubCommandGroup:
 		return "subcommand group (unsupported)"
-	case discordgo.ApplicationCommandOptionString:
+	case fluxergo.ApplicationCommandOptionString:
 		return "string"
-	case discordgo.ApplicationCommandOptionInteger:
+	case fluxergo.ApplicationCommandOptionInteger:
 		return "integer"
-	case discordgo.ApplicationCommandOptionBoolean:
+	case fluxergo.ApplicationCommandOptionBoolean:
 		return "boolean"
-	case discordgo.ApplicationCommandOptionUser:
+	case fluxergo.ApplicationCommandOptionUser:
 		return "user (unsupported)"
-	case discordgo.ApplicationCommandOptionChannel:
+	case fluxergo.ApplicationCommandOptionChannel:
 		return "channel (unsupported)"
-	case discordgo.ApplicationCommandOptionRole:
+	case fluxergo.ApplicationCommandOptionRole:
 		return "role (unsupported)"
-	case discordgo.ApplicationCommandOptionMentionable:
+	case fluxergo.ApplicationCommandOptionMentionable:
 		return "mentionable (unsupported)"
-	case discordgo.ApplicationCommandOptionNumber:
+	case fluxergo.ApplicationCommandOptionNumber:
 		return "number"
-	case discordgo.ApplicationCommandOptionAttachment:
+	case fluxergo.ApplicationCommandOptionAttachment:
 		return "attachment (unsupported)"
 	default:
 		return fmt.Sprintf("unknown type %d", optType)
 	}
 }
 
-func parseCommandOptionValue(optType discordgo.ApplicationCommandOptionType, value string) (any, error) {
+func parseCommandOptionValue(optType fluxergo.ApplicationCommandOptionType, value string) (any, error) {
 	switch optType {
-	case discordgo.ApplicationCommandOptionSubCommandGroup:
+	case fluxergo.ApplicationCommandOptionSubCommandGroup:
 		return nil, fmt.Errorf("subcommand groups aren't supported")
-	case discordgo.ApplicationCommandOptionString:
+	case fluxergo.ApplicationCommandOptionString:
 		return value, nil
-	case discordgo.ApplicationCommandOptionInteger:
+	case fluxergo.ApplicationCommandOptionInteger:
 		return strconv.ParseInt(value, 10, 64)
-	case discordgo.ApplicationCommandOptionBoolean:
+	case fluxergo.ApplicationCommandOptionBoolean:
 		return strconv.ParseBool(value)
-	case discordgo.ApplicationCommandOptionUser:
+	case fluxergo.ApplicationCommandOptionUser:
 		return nil, fmt.Errorf("user options aren't supported")
-	case discordgo.ApplicationCommandOptionChannel:
+	case fluxergo.ApplicationCommandOptionChannel:
 		return nil, fmt.Errorf("channel options aren't supported")
-	case discordgo.ApplicationCommandOptionRole:
+	case fluxergo.ApplicationCommandOptionRole:
 		return nil, fmt.Errorf("role options aren't supported")
-	case discordgo.ApplicationCommandOptionMentionable:
+	case fluxergo.ApplicationCommandOptionMentionable:
 		return nil, fmt.Errorf("mentionable options aren't supported")
-	case discordgo.ApplicationCommandOptionNumber:
+	case fluxergo.ApplicationCommandOptionNumber:
 		return strconv.ParseFloat(value, 64)
-	case discordgo.ApplicationCommandOptionAttachment:
+	case fluxergo.ApplicationCommandOptionAttachment:
 		return nil, fmt.Errorf("attachment options aren't supported")
 	default:
 		return nil, fmt.Errorf("unknown option type %d", optType)
@@ -143,7 +143,7 @@ func indent(text, with string) string {
 	return strings.Join(split, "\n")
 }
 
-func formatOption(opt *discordgo.ApplicationCommandOption) string {
+func formatOption(opt *fluxergo.ApplicationCommandOption) string {
 	argText := fmt.Sprintf("* `%s`: %s", opt.Name, getCommandOptionTypeName(opt.Type))
 	if strings.ToLower(opt.Description) != opt.Name {
 		argText += fmt.Sprintf(" - %s", opt.Description)
@@ -161,7 +161,7 @@ func formatOption(opt *discordgo.ApplicationCommandOption) string {
 	return argText
 }
 
-func formatCommand(cmd *discordgo.ApplicationCommand) string {
+func formatCommand(cmd *fluxergo.ApplicationCommand) string {
 	baseText := fmt.Sprintf("$cmdprefix exec %s", cmd.Name)
 	if len(cmd.Options) > 0 {
 		args := make([]string, len(cmd.Options))
@@ -179,14 +179,14 @@ func formatCommand(cmd *discordgo.ApplicationCommand) string {
 	return baseText
 }
 
-func parseCommandOptions(opts []*discordgo.ApplicationCommandOption, subcommands []string, namedArgs map[string]string) (res []*discordgo.ApplicationCommandOptionInput, err error) {
+func parseCommandOptions(opts []*fluxergo.ApplicationCommandOption, subcommands []string, namedArgs map[string]string) (res []*fluxergo.ApplicationCommandOptionInput, err error) {
 	subcommandDone := false
 	for _, opt := range opts {
-		optRes := &discordgo.ApplicationCommandOptionInput{
+		optRes := &fluxergo.ApplicationCommandOptionInput{
 			Type: opt.Type,
 			Name: opt.Name,
 		}
-		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
+		if opt.Type == fluxergo.ApplicationCommandOptionSubCommand {
 			if !subcommandDone && len(subcommands) > 0 && subcommands[0] == opt.Name {
 				subcommandDone = true
 				optRes.Options, err = parseCommandOptions(opt.Options, subcommands[1:], namedArgs)
@@ -206,9 +206,9 @@ func parseCommandOptions(opts []*discordgo.ApplicationCommandOption, subcommands
 			}
 		} else if opt.Required {
 			switch opt.Type {
-			case discordgo.ApplicationCommandOptionSubCommandGroup, discordgo.ApplicationCommandOptionUser,
-				discordgo.ApplicationCommandOptionChannel, discordgo.ApplicationCommandOptionRole,
-				discordgo.ApplicationCommandOptionMentionable, discordgo.ApplicationCommandOptionAttachment:
+			case fluxergo.ApplicationCommandOptionSubCommandGroup, fluxergo.ApplicationCommandOptionUser,
+				fluxergo.ApplicationCommandOptionChannel, fluxergo.ApplicationCommandOptionRole,
+				fluxergo.ApplicationCommandOptionMentionable, fluxergo.ApplicationCommandOptionAttachment:
 				err = fmt.Errorf("missing required parameter %s (which is not supported by the bridge)", opt.Name)
 			default:
 				err = fmt.Errorf("missing required parameter %s", opt.Name)
@@ -225,7 +225,7 @@ func parseCommandOptions(opts []*discordgo.ApplicationCommandOption, subcommands
 	return
 }
 
-func executeCommand(cmd *discordgo.ApplicationCommand, args []string) (res []*discordgo.ApplicationCommandOptionInput, err error) {
+func executeCommand(cmd *fluxergo.ApplicationCommand, args []string) (res []*fluxergo.ApplicationCommandOptionInput, err error) {
 	namedArgs := map[string]string{}
 	n := 0
 	for _, arg := range args {

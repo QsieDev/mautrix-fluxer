@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 	"golang.org/x/exp/slices"
 	"maunium.net/go/mautrix"
@@ -35,7 +35,7 @@ import (
 	"maunium.net/go/mautrix/format"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 type ConvertedMessage struct {
@@ -105,16 +105,16 @@ func (portal *Portal) cleanupConvertedStickerInfo(content *event.MessageEventCon
 	}
 }
 
-func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *discordgo.StickerItem) *ConvertedMessage {
+func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *fluxergo.StickerItem) *ConvertedMessage {
 	var mime string
 	switch sticker.FormatType {
-	case discordgo.StickerFormatTypePNG:
+	case fluxergo.StickerFormatTypePNG:
 		mime = "image/png"
-	case discordgo.StickerFormatTypeAPNG:
+	case fluxergo.StickerFormatTypeAPNG:
 		mime = "image/apng"
-	case discordgo.StickerFormatTypeLottie:
+	case fluxergo.StickerFormatTypeLottie:
 		mime = "application/json"
-	case discordgo.StickerFormatTypeGIF:
+	case fluxergo.StickerFormatTypeGIF:
 		mime = "image/gif"
 	default:
 		zerolog.Ctx(ctx).Warn().
@@ -144,7 +144,7 @@ func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appserv
 	}
 }
 
-func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *discordgo.MessageAttachment) *ConvertedMessage {
+func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *fluxergo.MessageAttachment) *ConvertedMessage {
 	content := &event.MessageEventContent{
 		Body: att.Filename,
 		Info: &event.FileInfo{
@@ -199,7 +199,7 @@ func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *apps
 	}
 }
 
-func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *discordgo.MessageEmbed) *ConvertedMessage {
+func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed) *ConvertedMessage {
 	attachmentID := fmt.Sprintf("video_%s", embed.URL)
 	var proxyURL string
 	if embed.Video != nil {
@@ -256,7 +256,7 @@ func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *apps
 		content.URL = dbFile.MXC.CUString()
 	}
 	extra := map[string]any{}
-	if content.MsgType == event.MsgVideo && embed.Type == discordgo.EmbedTypeGifv {
+	if content.MsgType == event.MsgVideo && embed.Type == fluxergo.EmbedTypeGifv {
 		extra["info"] = map[string]any{
 			"fi.mau.discord.gifv":  true,
 			"fi.mau.gif":           true,
@@ -274,7 +274,7 @@ func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *apps
 	}
 }
 
-func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet, intent *appservice.IntentAPI, msg *discordgo.Message) []*ConvertedMessage {
+func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet, intent *appservice.IntentAPI, msg *fluxergo.Message) []*ConvertedMessage {
 	predictedLength := len(msg.Attachments) + len(msg.StickerItems)
 	if msg.Content != "" {
 		predictedLength++
@@ -338,7 +338,7 @@ func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet,
 	return parts
 }
 
-func (puppet *Puppet) addMemberMeta(part *ConvertedMessage, msg *discordgo.Message) {
+func (puppet *Puppet) addMemberMeta(part *ConvertedMessage, msg *fluxergo.Message) {
 	if msg.Member == nil {
 		return
 	}
@@ -378,7 +378,7 @@ func (puppet *Puppet) addMemberMeta(part *ConvertedMessage, msg *discordgo.Messa
 	}
 }
 
-func (puppet *Puppet) addWebhookMeta(part *ConvertedMessage, msg *discordgo.Message) {
+func (puppet *Puppet) addWebhookMeta(part *ConvertedMessage, msg *fluxergo.Message) {
 	if msg.WebhookID == "" {
 		return
 	}
@@ -441,7 +441,7 @@ const (
 	embedFooterDateSeparator = ` • `
 )
 
-func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *discordgo.MessageEmbed, msgID string, index int) string {
+func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed, msgID string, index int) string {
 	log := zerolog.Ctx(ctx)
 	var htmlParts []string
 	if embed.Author != nil {
@@ -477,7 +477,7 @@ func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appse
 	for i := 0; i < len(embed.Fields); i++ {
 		item := embed.Fields[i]
 		if portal.bridge.Config.Bridge.EmbedFieldsAsTables {
-			splitItems := []*discordgo.MessageEmbedField{item}
+			splitItems := []*fluxergo.MessageEmbedField{item}
 			if item.Inline && len(embed.Fields) > i+1 && embed.Fields[i+1].Inline {
 				splitItems = append(splitItems, embed.Fields[i+1])
 				i++
@@ -584,7 +584,7 @@ func (portal *Portal) convertDiscordLinkEmbedImage(ctx context.Context, intent *
 	}
 }
 
-func (portal *Portal) convertDiscordLinkEmbedToBeeper(ctx context.Context, intent *appservice.IntentAPI, embed *discordgo.MessageEmbed) *BeeperLinkPreview {
+func (portal *Portal) convertDiscordLinkEmbedToBeeper(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed) *BeeperLinkPreview {
 	var preview BeeperLinkPreview
 	preview.MatchedURL = embed.URL
 	preview.Title = embed.Title
@@ -612,49 +612,49 @@ const (
 	EmbedVideo
 )
 
-func isActuallyLinkPreview(embed *discordgo.MessageEmbed) bool {
+func isActuallyLinkPreview(embed *fluxergo.MessageEmbed) bool {
 	// Sending YouTube links creates a video embed, but we want to bridge it as a URL preview,
 	// so this is a hacky way to detect those.
 	return embed.Video != nil && embed.Video.ProxyURL == ""
 }
 
-func getEmbedType(msg *discordgo.Message, embed *discordgo.MessageEmbed) BridgeEmbedType {
+func getEmbedType(msg *fluxergo.Message, embed *fluxergo.MessageEmbed) BridgeEmbedType {
 	switch embed.Type {
-	case discordgo.EmbedTypeLink, discordgo.EmbedTypeArticle:
+	case fluxergo.EmbedTypeLink, fluxergo.EmbedTypeArticle:
 		return EmbedLinkPreview
-	case discordgo.EmbedTypeVideo:
+	case fluxergo.EmbedTypeVideo:
 		if isActuallyLinkPreview(embed) {
 			return EmbedLinkPreview
 		}
 		return EmbedVideo
-	case discordgo.EmbedTypeGifv:
+	case fluxergo.EmbedTypeGifv:
 		return EmbedVideo
-	case discordgo.EmbedTypeImage:
+	case fluxergo.EmbedTypeImage:
 		if msg != nil && isPlainGifMessage(msg) {
 			return EmbedVideo
 		} else if embed.Image == nil && embed.Thumbnail != nil {
 			return EmbedLinkPreview
 		}
 		return EmbedRich
-	case discordgo.EmbedTypeRich:
+	case fluxergo.EmbedTypeRich:
 		return EmbedRich
 	default:
 		return EmbedUnknown
 	}
 }
 
-func isPlainGifMessage(msg *discordgo.Message) bool {
+func isPlainGifMessage(msg *fluxergo.Message) bool {
 	if len(msg.Embeds) != 1 {
 		return false
 	}
 	embed := msg.Embeds[0]
-	isGifVideo := embed.Type == discordgo.EmbedTypeGifv && embed.Video != nil
-	isGifImage := embed.Type == discordgo.EmbedTypeImage && embed.Image == nil && embed.Thumbnail != nil && embed.Title == ""
+	isGifVideo := embed.Type == fluxergo.EmbedTypeGifv && embed.Video != nil
+	isGifImage := embed.Type == fluxergo.EmbedTypeImage && embed.Image == nil && embed.Thumbnail != nil && embed.Title == ""
 	contentIsOnlyURL := msg.Content == embed.URL || discordLinkRegexFull.MatchString(msg.Content)
 	return contentIsOnlyURL && (isGifVideo || isGifImage)
 }
 
-func (portal *Portal) convertDiscordMentions(msg *discordgo.Message, syncGhosts bool) *event.Mentions {
+func (portal *Portal) convertDiscordMentions(msg *fluxergo.Message, syncGhosts bool) *event.Mentions {
 	var matrixMentions event.Mentions
 	for _, mention := range msg.Mentions {
 		puppet := portal.bridge.GetPuppetByID(mention.ID)
@@ -682,14 +682,14 @@ const forwardTemplateHTML = `<blockquote>
 <p>%s</p>
 </blockquote>`
 
-func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message) *ConvertedMessage {
+func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *fluxergo.Message) *ConvertedMessage {
 	log := zerolog.Ctx(ctx)
-	if msg.Type == discordgo.MessageTypeCall {
+	if msg.Type == fluxergo.MessageTypeCall {
 		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{
 			MsgType: event.MsgEmote,
 			Body:    "started a call",
 		}}
-	} else if msg.Type == discordgo.MessageTypeGuildMemberJoin {
+	} else if msg.Type == fluxergo.MessageTypeGuildMemberJoin {
 		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{
 			MsgType: event.MsgEmote,
 			Body:    "joined the server",
@@ -704,7 +704,7 @@ func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *app
 	if msg.Content != "" && !isPlainGifMessage(msg) {
 		htmlParts = append(htmlParts, portal.renderDiscordMarkdownOnlyHTML(msg.Content, true))
 	} else if msg.MessageReference != nil &&
-		msg.MessageReference.Type == discordgo.MessageReferenceTypeForward &&
+		msg.MessageReference.Type == fluxergo.MessageReferenceTypeForward &&
 		len(msg.MessageSnapshots) > 0 &&
 		msg.MessageSnapshots[0].Message != nil {
 		forwardedHTML := portal.renderDiscordMarkdownOnlyHTMLNoUnwrap(msg.MessageSnapshots[0].Message.Content, true)

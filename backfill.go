@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 func (portal *Portal) forwardBackfillInitial(source *User, thread *Thread) {
@@ -107,8 +107,8 @@ func (portal *Portal) ForwardBackfillMissed(source *User, serverLastMessageID st
 
 const messageFetchChunkSize = 50
 
-func (portal *Portal) collectBackfillMessages(log zerolog.Logger, source *User, limit int, until string, thread *Thread) ([]*discordgo.Message, bool, error) {
-	var messages []*discordgo.Message
+func (portal *Portal) collectBackfillMessages(log zerolog.Logger, source *User, limit int, until string, thread *Thread) ([]*fluxergo.Message, bool, error) {
+	var messages []*fluxergo.Message
 	var before string
 	var foundAll bool
 	protoChannelID := portal.Key.ChannelID
@@ -202,7 +202,7 @@ func (portal *Portal) backfillUnlimitedMissed(log zerolog.Logger, source *User, 
 	}
 }
 
-func (portal *Portal) sendBackfillBatch(log zerolog.Logger, source *User, messages []*discordgo.Message, thread *Thread) {
+func (portal *Portal) sendBackfillBatch(log zerolog.Logger, source *User, messages []*fluxergo.Message, thread *Thread) {
 	if portal.bridge.SpecVersions.Supports(mautrix.BeeperFeatureBatchSending) {
 		log.Debug().Msg("Using hungryserv, sending messages with batch send endpoint")
 		portal.forwardBatchSend(log, source, messages, thread)
@@ -214,7 +214,7 @@ func (portal *Portal) sendBackfillBatch(log zerolog.Logger, source *User, messag
 	}
 }
 
-func (portal *Portal) forwardBatchSend(log zerolog.Logger, source *User, messages []*discordgo.Message, thread *Thread) {
+func (portal *Portal) forwardBatchSend(log zerolog.Logger, source *User, messages []*fluxergo.Message, thread *Thread) {
 	evts, metas, dbMessages := portal.convertMessageBatch(log, source, messages, thread)
 	if len(evts) == 0 {
 		log.Warn().Msg("Didn't get any events to backfill")
@@ -231,7 +231,7 @@ func (portal *Portal) forwardBatchSend(log zerolog.Logger, source *User, message
 	}
 	for i, evtID := range resp.EventIDs {
 		dbMessages[i].MXID = evtID
-		if metas[i] != nil && metas[i].Flags == discordgo.MessageFlagsHasThread {
+		if metas[i] != nil && metas[i].Flags == fluxergo.MessageFlagsHasThread {
 			// TODO proper context
 			ctx := log.WithContext(context.Background())
 			portal.bridge.threadFound(ctx, source, &dbMessages[i], metas[i].ID, metas[i].Thread)
@@ -240,7 +240,7 @@ func (portal *Portal) forwardBatchSend(log zerolog.Logger, source *User, message
 	portal.bridge.DB.Message.MassInsert(portal.Key, dbMessages)
 }
 
-func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, messages []*discordgo.Message, thread *Thread) ([]*event.Event, []*discordgo.Message, []database.Message) {
+func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, messages []*fluxergo.Message, thread *Thread) ([]*event.Event, []*fluxergo.Message, []database.Message) {
 	var discordThreadID string
 	var threadRootEvent, lastThreadEvent id.EventID
 	if thread != nil {
@@ -255,7 +255,7 @@ func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, mess
 
 	evts := make([]*event.Event, 0, len(messages))
 	dbMessages := make([]database.Message, 0, len(messages))
-	metas := make([]*discordgo.Message, 0, len(messages))
+	metas := make([]*fluxergo.Message, 0, len(messages))
 	ctx := context.Background()
 	for _, msg := range messages {
 		for _, mention := range msg.Mentions {
@@ -269,7 +269,7 @@ func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, mess
 		replyTo := portal.getReplyTarget(source, discordThreadID, msg.MessageReference, msg.Embeds, true)
 		mentions := portal.convertDiscordMentions(msg, false)
 
-		ts, _ := discordgo.SnowflakeTimestamp(msg.ID)
+		ts, _ := fluxergo.SnowflakeTimestamp(msg.ID)
 		log := log.With().
 			Str("message_id", msg.ID).
 			Int("message_type", int(msg.Type)).
@@ -366,7 +366,7 @@ func shouldBackfill(latestBridgedIDStr, latestIDFromServerStr string) bool {
 	return compareMessageIDs(latestBridgedIDStr, latestIDFromServerStr) == -1
 }
 
-type MessageSlice []*discordgo.Message
+type MessageSlice []*fluxergo.Message
 
 var _ sort.Interface = (MessageSlice)(nil)
 

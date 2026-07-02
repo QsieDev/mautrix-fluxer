@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/qsiedev/fluxergo"
 	"go.mau.fi/util/dbutil"
 	log "maunium.net/go/maulogger/v2"
 )
@@ -71,7 +71,7 @@ type Role struct {
 
 	GuildID string
 
-	discordgo.Role
+	fluxergo.Role
 }
 
 func (r *Role) Scan(row dbutil.Scannable) *Role {

@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/qsiedev/fluxergo"
 	"go.mau.fi/util/exsync"
 	"go.mau.fi/util/ffmpeg"
 	"maunium.net/go/mautrix"
@@ -26,7 +26,7 @@ import (
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 
-	"go.mau.fi/mautrix-discord/database"
+	"go.mau.fi/mautrix-fluxer/database"
 )
 
 func downloadDiscordAttachment(cli *http.Client, url string, maxSize int64) ([]byte, error) {
@@ -34,7 +34,7 @@ func downloadDiscordAttachment(cli *http.Client, url string, maxSize int64) ([]b
 	if err != nil {
 		return nil, err
 	}
-	for key, value := range discordgo.DroidDownloadHeaders {
+	for key, value := range fluxergo.DroidDownloadHeaders {
 		req.Header.Set(key, value)
 	}
 
@@ -70,7 +70,7 @@ func uploadDiscordAttachment(cli *http.Client, url string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	for key, value := range discordgo.DroidBaseHeaders {
+	for key, value := range fluxergo.DroidBaseHeaders {
 		req.Header.Set(key, value)
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
@@ -334,10 +334,10 @@ func (portal *Portal) getEmojiMXCByDiscordID(emojiID, name string, animated bool
 	}
 	var url, mimeType string
 	if animated {
-		url = discordgo.EndpointEmojiAnimated(emojiID)
+		url = fluxergo.EndpointEmojiAnimated(emojiID)
 		mimeType = "image/gif"
 	} else {
-		url = discordgo.EndpointEmoji(emojiID)
+		url = fluxergo.EndpointEmoji(emojiID)
 		mimeType = "image/png"
 	}
 	dbFile, err := portal.bridge.copyAttachmentToMatrix(portal.MainIntent(), url, false, AttachmentMeta{
