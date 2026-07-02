@@ -25,10 +25,10 @@ func (rq *ReactionQuery) New() *Reaction {
 	}
 }
 
-func (rq *ReactionQuery) GetAllForMessage(key PortalKey, discordMessageID string) []*Reaction {
+func (rq *ReactionQuery) GetAllForMessage(key PortalKey, fluxerMessageID string) []*Reaction {
 	query := reactionSelect + " WHERE dc_chan_id=$1 AND dc_chan_receiver=$2 AND dc_msg_id=$3"
 
-	return rq.getAll(query, key.ChannelID, key.Receiver, discordMessageID)
+	return rq.getAll(query, key.ChannelID, key.Receiver, fluxerMessageID)
 }
 
 func (rq *ReactionQuery) getAll(query string, args ...interface{}) []*Reaction {
@@ -45,7 +45,7 @@ func (rq *ReactionQuery) getAll(query string, args ...interface{}) []*Reaction {
 	return reactions
 }
 
-func (rq *ReactionQuery) GetByDiscordID(key PortalKey, msgID, sender, emojiName string) *Reaction {
+func (rq *ReactionQuery) GetByFluxerID(key PortalKey, msgID, sender, emojiName string) *Reaction {
 	query := reactionSelect + " WHERE dc_chan_id=$1 AND dc_chan_receiver=$2 AND dc_msg_id=$3 AND dc_sender=$4 AND dc_emoji_name=$5"
 
 	return rq.get(query, key.ChannelID, key.Receiver, msgID, sender, emojiName)
@@ -94,7 +94,7 @@ func (r *Reaction) Scan(row dbutil.Scannable) *Reaction {
 	return r
 }
 
-func (r *Reaction) DiscordProtoChannelID() string {
+func (r *Reaction) FluxerProtoChannelID() string {
 	if r.ThreadID != "" {
 		return r.ThreadID
 	} else {

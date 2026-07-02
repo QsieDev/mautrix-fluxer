@@ -39,7 +39,7 @@ import (
 	"go.mau.fi/mautrix-fluxer/database"
 )
 
-type portalDiscordMessage struct {
+type portalFluxerMessage struct {
 	msg  interface{}
 	user *User
 
@@ -59,14 +59,14 @@ type Portal struct {
 	Parent *Portal
 	Guild  *Guild
 
-	bridge *DiscordBridge
+	bridge *FluxerBridge
 	log    zerolog.Logger
 
 	roomCreateLock sync.Mutex
 	encryptLock    sync.Mutex
 
-	discordMessages chan portalDiscordMessage
-	matrixMessages  chan portalMatrixMessage
+	fluxerMessages chan portalFluxerMessage
+	matrixMessages chan portalMatrixMessage
 
 	recentMessages *exsync.RingBuffer[string, *fluxergo.Message]
 
@@ -108,7 +108,7 @@ var (
 	portalCreationDummyEvent = event.Type{Type: "fi.mau.dummy.portal_created", Class: event.MessageEventType}
 )
 
-func (br *DiscordBridge) loadPortal(dbPortal *database.Portal, key *database.PortalKey, chanType fluxergo.ChannelType) *Portal {
+func (br *FluxerBridge) loadPortal(dbPortal *database.Portal, key *database.PortalKey, chanType fluxergo.ChannelType) *Portal {
 	if dbPortal == nil {
 		if key == nil || chanType < 0 {
 			return nil
@@ -142,7 +142,7 @@ func (br *DiscordBridge) loadPortal(dbPortal *database.Portal, key *database.Por
 	return portal
 }
 
-func (br *DiscordBridge) GetPortalByMXID(mxid id.RoomID) *Portal {
+func (br *FluxerBridge) GetPortalByMXID(mxid id.RoomID) *Portal {
 	br.portalsLock.Lock()
 	defer br.portalsLock.Unlock()
 
@@ -159,17 +159,17 @@ func (user *User) GetPortalByMeta(meta *fluxergo.Channel) *Portal {
 }
 
 func (user *User) GetExistingPortalByID(id string) *Portal {
-	return user.bridge.GetExistingPortalByID(database.NewPortalKey(id, user.DiscordID))
+	return user.bridge.GetExistingPortalByID(database.NewPortalKey(id, user.FluxerID))
 }
 
 func (user *User) GetPortalByID(id string, chanType fluxergo.ChannelType) *Portal {
-	return user.bridge.GetPortalByID(database.NewPortalKey(id, user.DiscordID), chanType)
+	return user.bridge.GetPortalByID(database.NewPortalKey(id, user.FluxerID), chanType)
 }
 
 func (user *User) FindPrivateChatWith(userID string) *Portal {
 	user.bridge.portalsLock.Lock()
 	defer user.bridge.portalsLock.Unlock()
-	dbPortal := user.bridge.DB.Portal.FindPrivateChatBetween(userID, user.DiscordID)
+	dbPortal := user.bridge.DB.Portal.FindPrivateChatBetween(userID, user.FluxerID)
 	if dbPortal == nil {
 		return nil
 	}
@@ -180,7 +180,7 @@ func (user *User) FindPrivateChatWith(userID string) *Portal {
 	return user.bridge.loadPortal(dbPortal, nil, fluxergo.ChannelTypeDM)
 }
 
-func (br *DiscordBridge) GetExistingPortalByID(key database.PortalKey) *Portal {
+func (br *FluxerBridge) GetExistingPortalByID(key database.PortalKey) *Portal {
 	br.portalsLock.Lock()
 	defer br.portalsLock.Unlock()
 	portal, ok := br.portalsByID[key]
@@ -196,7 +196,7 @@ func (br *DiscordBridge) GetExistingPortalByID(key database.PortalKey) *Portal {
 	return portal
 }
 
-func (br *DiscordBridge) GetPortalByID(key database.PortalKey, chanType fluxergo.ChannelType) *Portal {
+func (br *FluxerBridge) GetPortalByID(key database.PortalKey, chanType fluxergo.ChannelType) *Portal {
 	br.portalsLock.Lock()
 	defer br.portalsLock.Unlock()
 	if chanType != fluxergo.ChannelTypeDM {
@@ -211,15 +211,15 @@ func (br *DiscordBridge) GetPortalByID(key database.PortalKey, chanType fluxergo
 	return portal
 }
 
-func (br *DiscordBridge) GetAllPortals() []*Portal {
+func (br *FluxerBridge) GetAllPortals() []*Portal {
 	return br.dbPortalsToPortals(br.DB.Portal.GetAll())
 }
 
-func (br *DiscordBridge) GetAllPortalsInGuild(guildID string) []*Portal {
+func (br *FluxerBridge) GetAllPortalsInGuild(guildID string) []*Portal {
 	return br.dbPortalsToPortals(br.DB.Portal.GetAllInGuild(guildID))
 }
 
-func (br *DiscordBridge) GetAllIPortals() (iportals []bridge.Portal) {
+func (br *FluxerBridge) GetAllIPortals() (iportals []bridge.Portal) {
 	portals := br.GetAllPortals()
 	iportals = make([]bridge.Portal, len(portals))
 	for i, portal := range portals {
@@ -228,11 +228,11 @@ func (br *DiscordBridge) GetAllIPortals() (iportals []bridge.Portal) {
 	return iportals
 }
 
-func (br *DiscordBridge) GetDMPortalsWith(otherUserID string) []*Portal {
+func (br *FluxerBridge) GetDMPortalsWith(otherUserID string) []*Portal {
 	return br.dbPortalsToPortals(br.DB.Portal.FindPrivateChatsWith(otherUserID))
 }
 
-func (br *DiscordBridge) dbPortalsToPortals(dbPortals []*database.Portal) []*Portal {
+func (br *FluxerBridge) dbPortalsToPortals(dbPortals []*database.Portal) []*Portal {
 	br.portalsLock.Lock()
 	defer br.portalsLock.Unlock()
 
@@ -253,7 +253,7 @@ func (br *DiscordBridge) dbPortalsToPortals(dbPortals []*database.Portal) []*Por
 	return output
 }
 
-func (br *DiscordBridge) NewPortal(dbPortal *database.Portal) *Portal {
+func (br *FluxerBridge) NewPortal(dbPortal *database.Portal) *Portal {
 	portal := &Portal{
 		Portal: dbPortal,
 		bridge: br,
@@ -263,8 +263,8 @@ func (br *DiscordBridge) NewPortal(dbPortal *database.Portal) *Portal {
 			Str("room_id", dbPortal.MXID.String()).
 			Logger(),
 
-		discordMessages: make(chan portalDiscordMessage, br.Config.Bridge.PortalMessageBuffer),
-		matrixMessages:  make(chan portalMatrixMessage, br.Config.Bridge.PortalMessageBuffer),
+		fluxerMessages: make(chan portalFluxerMessage, br.Config.Bridge.PortalMessageBuffer),
+		matrixMessages: make(chan portalMatrixMessage, br.Config.Bridge.PortalMessageBuffer),
 
 		recentMessages: exsync.NewRingBuffer[string, *fluxergo.Message](recentMessageBufferSize),
 
@@ -281,8 +281,8 @@ func (portal *Portal) messageLoop() {
 		select {
 		case msg := <-portal.matrixMessages:
 			portal.handleMatrixMessages(msg)
-		case msg := <-portal.discordMessages:
-			portal.handleDiscordMessages(msg)
+		case msg := <-portal.fluxerMessages:
+			portal.handleFluxerMessages(msg)
 		}
 	}
 }
@@ -315,10 +315,10 @@ func (portal *Portal) getBridgeInfo() (string, CustomBridgeInfoContent) {
 		BridgeBot: portal.bridge.Bot.UserID,
 		Creator:   portal.MainIntent().UserID,
 		Protocol: event.BridgeInfoSection{
-			ID:          "discordgo",
-			DisplayName: "Discord",
+			ID:          "fluxergo",
+			DisplayName: "Fluxer",
 			AvatarURL:   portal.bridge.Config.AppService.Bot.ParsedAvatar.CUString(),
-			ExternalURL: "https://discord.com/",
+			ExternalURL: "https://fluxer.app/",
 		},
 		Channel: event.BridgeInfoSection{
 			ID:          portal.Key.ChannelID,
@@ -327,8 +327,8 @@ func (portal *Portal) getBridgeInfo() (string, CustomBridgeInfoContent) {
 	}
 	var bridgeInfoStateKey string
 	if portal.GuildID == "" {
-		bridgeInfoStateKey = fmt.Sprintf("fi.mau.discord://discord/dm/%s", portal.Key.ChannelID)
-		bridgeInfo.Channel.ExternalURL = fmt.Sprintf("https://discord.com/channels/@me/%s", portal.Key.ChannelID)
+		bridgeInfoStateKey = fmt.Sprintf("fi.mau.fluxer://fluxer/dm/%s", portal.Key.ChannelID)
+		bridgeInfo.Channel.ExternalURL = fmt.Sprintf("https://fluxer.app/channels/@me/%s", portal.Key.ChannelID)
 	} else {
 		bridgeInfo.Network = &event.BridgeInfoSection{
 			ID: portal.GuildID,
@@ -338,8 +338,8 @@ func (portal *Portal) getBridgeInfo() (string, CustomBridgeInfoContent) {
 			bridgeInfo.Network.AvatarURL = portal.Guild.AvatarURL.CUString()
 			// TODO is it possible to find the URL?
 		}
-		bridgeInfoStateKey = fmt.Sprintf("fi.mau.discord://discord/%s/%s", portal.GuildID, portal.Key.ChannelID)
-		bridgeInfo.Channel.ExternalURL = fmt.Sprintf("https://discord.com/channels/%s/%s", portal.GuildID, portal.Key.ChannelID)
+		bridgeInfoStateKey = fmt.Sprintf("fi.mau.fluxer://fluxer/%s/%s", portal.GuildID, portal.Key.ChannelID)
+		bridgeInfo.Channel.ExternalURL = fmt.Sprintf("https://fluxer.app/channels/%s/%s", portal.GuildID, portal.Key.ChannelID)
 	}
 	var roomType string
 	if portal.Type == fluxergo.ChannelTypeDM || portal.Type == fluxergo.ChannelTypeGroupDM {
@@ -562,7 +562,7 @@ func (portal *Portal) CreateMatrixRoom(user *User, channel *fluxergo.Channel) er
 	return nil
 }
 
-func (portal *Portal) handleDiscordMessages(msg portalDiscordMessage) {
+func (portal *Portal) handleFluxerMessages(msg portalFluxerMessage) {
 	if portal.MXID == "" {
 		msgCreate, ok := msg.msg.(*fluxergo.MessageCreate)
 		if !ok {
@@ -583,19 +583,19 @@ func (portal *Portal) handleDiscordMessages(msg portalDiscordMessage) {
 
 	switch convertedMsg := msg.msg.(type) {
 	case *fluxergo.MessageCreate:
-		portal.handleDiscordMessageCreate(msg.user, convertedMsg.Message, msg.thread)
+		portal.handleFluxerMessageCreate(msg.user, convertedMsg.Message, msg.thread)
 	case *fluxergo.MessageUpdate:
-		portal.handleDiscordMessageUpdate(msg.user, convertedMsg.Message)
+		portal.handleFluxerMessageUpdate(msg.user, convertedMsg.Message)
 	case *fluxergo.MessageDelete:
-		portal.handleDiscordMessageDelete(msg.user, convertedMsg.Message)
+		portal.handleFluxerMessageDelete(msg.user, convertedMsg.Message)
 	case *fluxergo.MessageDeleteBulk:
-		portal.handleDiscordMessageDeleteBulk(msg.user, convertedMsg.Messages)
+		portal.handleFluxerMessageDeleteBulk(msg.user, convertedMsg.Messages)
 	case *fluxergo.MessageReactionAdd:
-		portal.handleDiscordReaction(msg.user, convertedMsg.MessageReaction, true, msg.thread, convertedMsg.Member)
+		portal.handleFluxerReaction(msg.user, convertedMsg.MessageReaction, true, msg.thread, convertedMsg.Member)
 	case *fluxergo.MessageReactionRemove:
-		portal.handleDiscordReaction(msg.user, convertedMsg.MessageReaction, false, msg.thread, nil)
+		portal.handleFluxerReaction(msg.user, convertedMsg.MessageReaction, false, msg.thread, nil)
 	default:
-		portal.log.Warn().Type("message_type", msg.msg).Msg("Unknown message type in handleDiscordMessages")
+		portal.log.Warn().Type("message_type", msg.msg).Msg("Unknown message type in handleFluxerMessages")
 	}
 }
 
@@ -603,10 +603,10 @@ func (portal *Portal) ensureUserInvited(user *User, ignoreCache bool) bool {
 	return user.ensureInvited(portal.MainIntent(), portal.MXID, portal.IsPrivateChat(), ignoreCache)
 }
 
-func (portal *Portal) markMessageHandled(discordID string, authorID string, timestamp time.Time, threadID string, senderMXID id.UserID, parts []database.MessagePart) *database.Message {
+func (portal *Portal) markMessageHandled(fluxerID string, authorID string, timestamp time.Time, threadID string, senderMXID id.UserID, parts []database.MessagePart) *database.Message {
 	msg := portal.bridge.DB.Message.New()
 	msg.Channel = portal.Key
-	msg.DiscordID = discordID
+	msg.FluxerID = fluxerID
 	msg.SenderID = authorID
 	msg.Timestamp = timestamp
 	msg.ThreadID = threadID
@@ -617,7 +617,7 @@ func (portal *Portal) markMessageHandled(discordID string, authorID string, time
 	return msg
 }
 
-func (portal *Portal) handleDiscordMessageCreate(user *User, msg *fluxergo.Message, thread *Thread) {
+func (portal *Portal) handleFluxerMessageCreate(user *User, msg *fluxergo.Message, thread *Thread) {
 	switch msg.Type {
 	case fluxergo.MessageTypeChannelNameChange, fluxergo.MessageTypeChannelIconChange, fluxergo.MessageTypeChannelPinnedMessage:
 		// These are handled via channel updates
@@ -628,13 +628,13 @@ func (portal *Portal) handleDiscordMessageCreate(user *User, msg *fluxergo.Messa
 		Str("message_id", msg.ID).
 		Int("message_type", int(msg.Type)).
 		Str("author_id", msg.Author.ID).
-		Str("action", "discord message create").
+		Str("action", "fluxer message create").
 		Logger()
 	ctx := log.WithContext(context.Background())
 
 	portal.recentMessages.Push(msg.ID, msg)
 
-	existing := portal.bridge.DB.Message.GetByDiscordID(portal.Key, msg.ID)
+	existing := portal.bridge.DB.Message.GetByFluxerID(portal.Key, msg.ID)
 	if existing != nil {
 		log.Debug().Msg("Dropping duplicate message")
 		return
@@ -645,10 +645,10 @@ func (portal *Portal) handleDiscordMessageCreate(user *User, msg *fluxergo.Messa
 	puppet.UpdateInfo(user, msg.Author, msg)
 	intent := puppet.IntentFor(portal)
 
-	var discordThreadID string
+	var fluxerThreadID string
 	var threadRootEvent, lastThreadEvent id.EventID
 	if thread != nil {
-		discordThreadID = thread.ID
+		fluxerThreadID = thread.ID
 		threadRootEvent = thread.RootMXID
 		lastThreadEvent = threadRootEvent
 		lastInThread := portal.bridge.DB.Message.GetLastInThread(portal.Key, thread.ID)
@@ -656,11 +656,11 @@ func (portal *Portal) handleDiscordMessageCreate(user *User, msg *fluxergo.Messa
 			lastThreadEvent = lastInThread.MXID
 		}
 	}
-	replyTo := portal.getReplyTarget(user, discordThreadID, msg.MessageReference, msg.Embeds, false)
-	mentions := portal.convertDiscordMentions(msg, true)
+	replyTo := portal.getReplyTarget(user, fluxerThreadID, msg.MessageReference, msg.Embeds, false)
+	mentions := portal.convertFluxerMentions(msg, true)
 
 	ts, _ := fluxergo.SnowflakeTimestamp(msg.ID)
-	parts := portal.convertDiscordMessage(ctx, puppet, intent, msg)
+	parts := portal.convertFluxerMessage(ctx, puppet, intent, msg)
 	dbParts := make([]database.MessagePart, 0, len(parts))
 	eventIDs := zerolog.Dict()
 	for i, part := range parts {
@@ -702,15 +702,15 @@ func (portal *Portal) handleDiscordMessageCreate(user *User, msg *fluxergo.Messa
 	} else if len(dbParts) == 0 {
 		log.Warn().Msg("All parts of message failed to send to Matrix")
 	} else {
-		log.Debug().Dict("event_ids", eventIDs).Msg("Finished handling Discord message")
-		firstDBMessage := portal.markMessageHandled(msg.ID, msg.Author.ID, ts, discordThreadID, intent.UserID, dbParts)
+		log.Debug().Dict("event_ids", eventIDs).Msg("Finished handling Fluxer message")
+		firstDBMessage := portal.markMessageHandled(msg.ID, msg.Author.ID, ts, fluxerThreadID, intent.UserID, dbParts)
 		if msg.Flags == fluxergo.MessageFlagsHasThread {
 			portal.bridge.threadFound(ctx, user, firstDBMessage, msg.ID, msg.Thread)
 		}
 	}
 }
 
-var hackyReplyPattern = regexp.MustCompile(`^\*\*\[Replying to]\(https://discord.com/channels/(\d+)/(\d+)/(\d+)\)`)
+var hackyReplyPattern = regexp.MustCompile(`^\*\*\[Replying to]\(https://fluxer.app/channels/(\d+)/(\d+)/(\d+)\)`)
 
 func isReplyEmbed(embed *fluxergo.MessageEmbed) bool {
 	return hackyReplyPattern.MatchString(embed.Description)
@@ -735,12 +735,12 @@ func (portal *Portal) getReplyTarget(source *User, threadID string, ref *fluxerg
 
 	targetPortal := portal
 	if ref.ChannelID != portal.Key.ChannelID && ref.ChannelID != threadID && crossRoomReplies {
-		targetPortal = portal.bridge.GetExistingPortalByID(database.PortalKey{ChannelID: ref.ChannelID, Receiver: source.DiscordID})
+		targetPortal = portal.bridge.GetExistingPortalByID(database.PortalKey{ChannelID: ref.ChannelID, Receiver: source.FluxerID})
 		if targetPortal == nil {
 			return nil
 		}
 	}
-	replyToMsg := portal.bridge.DB.Message.GetByDiscordID(targetPortal.Key, ref.MessageID)
+	replyToMsg := portal.bridge.DB.Message.GetByFluxerID(targetPortal.Key, ref.MessageID)
 	if len(replyToMsg) > 0 {
 		if !crossRoomReplies {
 			return &event.InReplyTo{EventID: replyToMsg[0].MXID}
@@ -766,9 +766,9 @@ func (portal *Portal) sendThreadCreationNotice(ctx context.Context, thread *Thre
 	if thread.CreationNoticeMXID != "" {
 		return
 	}
-	creationNotice := "Thread created. React to this message with \"join thread\" to join the thread on Discord."
+	creationNotice := "Thread created. React to this message with \"join thread\" to join the thread on Fluxer."
 	if portal.bridge.Config.Bridge.AutojoinThreadOnOpen {
-		creationNotice = "Thread created. Opening this thread will auto-join you to it on Discord."
+		creationNotice = "Thread created. Opening this thread will auto-join you to it on Fluxer."
 	}
 	log := zerolog.Ctx(ctx)
 	resp, err := portal.sendMatrixMessage(portal.MainIntent(), event.EventMessage, &event.MessageEventContent{
@@ -806,10 +806,10 @@ func (portal *Portal) sendThreadCreationNotice(ctx context.Context, thread *Thre
 	}
 }
 
-func (portal *Portal) handleDiscordMessageUpdate(user *User, msg *fluxergo.Message) {
+func (portal *Portal) handleFluxerMessageUpdate(user *User, msg *fluxergo.Message) {
 	log := portal.log.With().
 		Str("message_id", msg.ID).
-		Str("action", "discord message update").
+		Str("action", "fluxer message update").
 		Logger()
 	ctx := log.WithContext(context.Background())
 	if portal.MXID == "" {
@@ -817,7 +817,7 @@ func (portal *Portal) handleDiscordMessageUpdate(user *User, msg *fluxergo.Messa
 		return
 	}
 
-	existing := portal.bridge.DB.Message.GetByDiscordID(portal.Key, msg.ID)
+	existing := portal.bridge.DB.Message.GetByFluxerID(portal.Key, msg.ID)
 	if existing == nil {
 		log.Warn().Msg("Dropping update of unknown message")
 		return
@@ -910,22 +910,22 @@ func (portal *Portal) handleDiscordMessageUpdate(user *User, msg *fluxergo.Messa
 
 	var converted *ConvertedMessage
 	// Slightly hacky special case: messages with gif links will get an embed with the gif.
-	// The link isn't rendered on Discord, so just edit the link message into a gif message on Matrix too.
+	// The link isn't rendered on Fluxer, so just edit the link message into a gif message on Matrix too.
 	if isPlainGifMessage(msg) {
-		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg.Embeds[0])
+		converted = portal.convertFluxerVideoEmbed(ctx, intent, msg.Embeds[0])
 	} else {
-		converted = portal.convertDiscordTextMessage(ctx, intent, msg)
+		converted = portal.convertFluxerTextMessage(ctx, intent, msg)
 	}
 	if converted == nil {
 		log.Debug().
 			Bool("has_message_on_matrix", existing[0].AttachmentID == "").
-			Bool("has_text_on_discord", len(msg.Content) > 0).
+			Bool("has_text_on_fluxer", len(msg.Content) > 0).
 			Msg("Dropping non-text edit")
 		return
 	}
 	puppet.addWebhookMeta(converted, msg)
 	puppet.addMemberMeta(converted, msg)
-	converted.Content.Mentions = portal.convertDiscordMentions(msg, false)
+	converted.Content.Mentions = portal.convertFluxerMentions(msg, false)
 	converted.Content.SetEdit(existing[0].MXID)
 	// Never actually mention new users of edits, only include mentions inside m.new_content
 	converted.Content.Mentions = &event.Mentions{}
@@ -954,17 +954,17 @@ func (portal *Portal) handleDiscordMessageUpdate(user *User, msg *fluxergo.Messa
 	log.Debug().
 		Str("event_id", resp.EventID.String()).
 		Dict("redacted_attachments", redactions).
-		Msg("Finished handling Discord edit")
+		Msg("Finished handling Fluxer edit")
 }
 
-func (portal *Portal) handleDiscordMessageDelete(user *User, msg *fluxergo.Message) {
+func (portal *Portal) handleFluxerMessageDelete(user *User, msg *fluxergo.Message) {
 	lastResp := portal.redactAllParts(portal.MainIntent(), msg.ID)
 	if lastResp != "" {
 		portal.sendDeliveryReceipt(lastResp)
 	}
 }
 
-func (portal *Portal) handleDiscordMessageDeleteBulk(user *User, messages []string) {
+func (portal *Portal) handleFluxerMessageDeleteBulk(user *User, messages []string) {
 	intent := portal.MainIntent()
 	var lastResp id.EventID
 	for _, msgID := range messages {
@@ -979,7 +979,7 @@ func (portal *Portal) handleDiscordMessageDeleteBulk(user *User, messages []stri
 }
 
 func (portal *Portal) redactAllParts(intent *appservice.IntentAPI, msgID string) (lastResp id.EventID) {
-	existing := portal.bridge.DB.Message.GetByDiscordID(portal.Key, msgID)
+	existing := portal.bridge.DB.Message.GetByFluxerID(portal.Key, msgID)
 	for _, dbMsg := range existing {
 		resp, err := intent.RedactEvent(portal.MXID, dbMsg.MXID)
 		if err != nil {
@@ -995,7 +995,7 @@ func (portal *Portal) redactAllParts(intent *appservice.IntentAPI, msgID string)
 	return
 }
 
-func (portal *Portal) handleDiscordTyping(evt *fluxergo.TypingStart) {
+func (portal *Portal) handleFluxerTyping(evt *fluxergo.TypingStart) {
 	puppet := portal.bridge.GetPuppetByID(evt.UserID)
 	if puppet.Name == "" {
 		// Puppet hasn't been synced yet
@@ -1003,7 +1003,7 @@ func (portal *Portal) handleDiscordTyping(evt *fluxergo.TypingStart) {
 	}
 	log := portal.log.With().
 		Str("ghost_mxid", puppet.MXID.String()).
-		Str("action", "discord typing").
+		Str("action", "fluxer typing").
 		Logger()
 	intent := puppet.IntentFor(portal)
 	err := intent.EnsureJoined(portal.MXID)
@@ -1112,10 +1112,10 @@ func (portal *Portal) handleMatrixMessages(msg portalMatrixMessage) {
 	}
 }
 
-const discordEpoch = 1420070400000
+const fluxerEpoch = 1420070400000
 
 func generateNonce() string {
-	snowflake := (time.Now().UnixMilli() - discordEpoch) << 22
+	snowflake := (time.Now().UnixMilli() - fluxerEpoch) << 22
 	// Nonce snowflakes don't have internal IDs or increments
 	return strconv.FormatInt(snowflake, 10)
 }
@@ -1172,7 +1172,7 @@ func (portal *Portal) startThreadFromMatrix(sender *User, threadRoot id.EventID)
 		return "", fmt.Errorf("root event is already in a thread")
 	} else {
 		var ch *fluxergo.Channel
-		ch, err = sender.Session.MessageThreadStartComplex(portal.Key.ChannelID, existingMsg.DiscordID, &fluxergo.ThreadStart{
+		ch, err = sender.Session.MessageThreadStartComplex(portal.Key.ChannelID, existingMsg.FluxerID, &fluxergo.ThreadStart{
 			Name:                threadName,
 			AutoArchiveDuration: 24 * 60,
 			Type:                fluxergo.ChannelTypeGuildPublicThread,
@@ -1184,8 +1184,8 @@ func (portal *Portal) startThreadFromMatrix(sender *User, threadRoot id.EventID)
 		portal.log.Debug().
 			Str("thread_root_mxid", threadRoot.String()).
 			Str("thread_id", ch.ID).
-			Msg("Created Discord thread")
-		portal.bridge.GetThreadByID(existingMsg.DiscordID, existingMsg)
+			Msg("Created Fluxer thread")
+		portal.bridge.GetThreadByID(existingMsg.FluxerID, existingMsg)
 		return ch.ID, nil
 	}
 }
@@ -1228,7 +1228,7 @@ var (
 	errUnknownEmoji                = errors.New("unknown emoji")
 	errRelationshipsNotReady       = errors.New("can't direct message before receiving relationships")
 	errDMingStranger               = errors.New("can't direct message a stranger")
-	errCantStartThread             = errors.New("can't create thread without being logged into Discord")
+	errCantStartThread             = errors.New("can't create thread without being logged into Fluxer")
 )
 
 func errorToStatusReason(err error) (reason event.MessageStatusReason, status event.MessageStatus, isCertain, sendNotice bool, humanMessage string, checkpointError error) {
@@ -1244,9 +1244,9 @@ func errorToStatusReason(err error) (reason event.MessageStatusReason, status ev
 		errors.Is(err, errCantStartThread):
 		return event.MessageStatusUnsupported, event.MessageStatusFail, true, true, "", nil
 	case errors.Is(err, errDMingStranger):
-		return event.MessageStatusGenericError, event.MessageStatusFail, true, true, "You can't message users who aren't on your friends list. Use the Discord app to chat or add them as a friend to continue.", nil
+		return event.MessageStatusGenericError, event.MessageStatusFail, true, true, "You can't message users who aren't on your friends list. Use the Fluxer app to chat or add them as a friend to continue.", nil
 	case errors.Is(err, errRelationshipsNotReady):
-		return event.MessageStatusGenericError, event.MessageStatusRetriable, true, true, "Still syncing your Discord friends list, please try again in a moment.", nil
+		return event.MessageStatusGenericError, event.MessageStatusRetriable, true, true, "Still syncing your Fluxer friends list, please try again in a moment.", nil
 	case errors.Is(err, attachment.HashMismatch),
 		errors.Is(err, attachment.InvalidKey),
 		errors.Is(err, attachment.InvalidInitVector):
@@ -1391,7 +1391,7 @@ func (portal *Portal) sendMessageMetrics(evt *event.Event, err error, part strin
 	}
 }
 
-func (br *DiscordBridge) serveMediaProxy(w http.ResponseWriter, r *http.Request) {
+func (br *FluxerBridge) serveMediaProxy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	mxc := id.ContentURI{
 		Homeserver: vars["server"],
@@ -1434,14 +1434,14 @@ func (br *DiscordBridge) serveMediaProxy(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (br *DiscordBridge) hashMediaProxyURL(mxc id.ContentURI) (string, []byte) {
-	path := fmt.Sprintf("/mautrix-discord/avatar/%s/%s/", mxc.Homeserver, mxc.FileID)
+func (br *FluxerBridge) hashMediaProxyURL(mxc id.ContentURI) (string, []byte) {
+	path := fmt.Sprintf("/mautrix-fluxer/avatar/%s/%s/", mxc.Homeserver, mxc.FileID)
 	checksum := hmac.New(sha256.New, []byte(br.Config.Bridge.AvatarProxyKey))
 	checksum.Write([]byte(path))
 	return path, checksum.Sum(nil)
 }
 
-func (br *DiscordBridge) makeMediaProxyURL(mxc id.ContentURI) string {
+func (br *FluxerBridge) makeMediaProxyURL(mxc id.ContentURI) string {
 	if br.Config.Bridge.PublicAddress == "" {
 		return ""
 	}
@@ -1500,14 +1500,14 @@ func (portal *Portal) convertReplyMessageToEmbed(eventID id.EventID, url string)
 	puppet := portal.bridge.GetPuppetByMXID(evt.Sender)
 	if puppet != nil {
 		targetUser = fmt.Sprintf("<@%s>", puppet.ID)
-	} else if user := portal.bridge.GetUserByMXID(evt.Sender); user != nil && user.DiscordID != "" {
-		targetUser = fmt.Sprintf("<@%s>", user.DiscordID)
+	} else if user := portal.bridge.GetUserByMXID(evt.Sender); user != nil && user.FluxerID != "" {
+		targetUser = fmt.Sprintf("<@%s>", user.FluxerID)
 	} else if member := portal.bridge.StateStore.GetMember(portal.MXID, evt.Sender); member != nil && member.Displayname != "" {
 		targetUser = member.Displayname
 	} else {
 		targetUser = evt.Sender.String()
 	}
-	body := escapeDiscordMarkdown(cutBody(content.Body))
+	body := escapeFluxerMarkdown(cutBody(content.Body))
 	body = fmt.Sprintf("**[Replying to](%s) %s**\n%s", url, targetUser, body)
 	embed := &fluxergo.MessageEmbed{Description: body}
 	return embed, nil
@@ -1543,7 +1543,7 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 	isWebhookSend := sess == nil
 
 	if portal.IsPrivateChat() {
-		if sender.DiscordID != portal.Key.Receiver {
+		if sender.FluxerID != portal.Key.Receiver {
 			go portal.sendMessageMetrics(evt, errUserNotReceiver, "Ignoring")
 			return
 		}
@@ -1574,15 +1574,15 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 		edits := portal.bridge.DB.Message.GetByMXID(portal.Key, editMXID)
 		if edits != nil {
 			newContentRaw, _ := evt.Content.Raw["m.new_content"].(map[string]any)
-			discordContent, allowedMentions := portal.parseMatrixHTML(content.NewContent, parseAllowedLinkPreviews(newContentRaw))
+			fluxerContent, allowedMentions := portal.parseMatrixHTML(content.NewContent, parseAllowedLinkPreviews(newContentRaw))
 			var err error
 			var msg *fluxergo.Message
 			if !isWebhookSend {
 				// TODO save edit in message table
-				msg, err = sess.ChannelMessageEdit(edits.DiscordProtoChannelID(), edits.DiscordID, discordContent)
+				msg, err = sess.ChannelMessageEdit(edits.FluxerProtoChannelID(), edits.FluxerID, fluxerContent)
 			} else {
-				msg, err = relayClient.WebhookMessageEdit(portal.RelayWebhookID, portal.RelayWebhookSecret, edits.DiscordID, &fluxergo.WebhookEdit{
-					Content:         &discordContent,
+				msg, err = relayClient.WebhookMessageEdit(portal.RelayWebhookID, portal.RelayWebhookSecret, edits.FluxerID, &fluxergo.WebhookEdit{
+					Content:         &fluxerContent,
 					AllowedMentions: allowedMentions,
 				})
 			}
@@ -1636,7 +1636,7 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 		if replyTo != nil && replyTo.ThreadID == threadID {
 			replyToUser = replyTo.SenderMXID
 			if isWebhookSend {
-				messageURL := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", portal.GuildID, channelID, replyTo.DiscordID)
+				messageURL := fmt.Sprintf("https://fluxer.app/channels/%s/%s/%s", portal.GuildID, channelID, replyTo.FluxerID)
 				embed, err := portal.convertReplyMessageToEmbed(replyTo.MXID, messageURL)
 				if err != nil {
 					portal.log.Warn().Err(err).Msg("Failed to convert reply message to embed for webhook send")
@@ -1646,7 +1646,7 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 			} else {
 				sendReq.Reference = &fluxergo.MessageReference{
 					ChannelID: channelID,
-					MessageID: replyTo.DiscordID,
+					MessageID: replyTo.FluxerID,
 				}
 			}
 		}
@@ -1673,7 +1673,7 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 			filename = "SPOILER_" + filename
 		}
 
-		if portal.bridge.Config.Bridge.UseDiscordCDNUpload && !isWebhookSend && sess.IsUser {
+		if portal.bridge.Config.Bridge.UseFluxerCDNUpload && !isWebhookSend && sess.IsUser {
 			att := &fluxergo.MessageAttachment{
 				ID:                  "0",
 				Filename:            filename,
@@ -1686,7 +1686,7 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 				Files: []*fluxergo.FilePrepare{{
 					Size: len(data),
 					Name: att.Filename,
-					ID:   sender.NextDiscordUploadID(),
+					ID:   sender.NextFluxerUploadID(),
 
 					IsClip:              &isClip,
 					OriginalContentType: att.OriginalContentType,
@@ -1698,7 +1698,7 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 			}
 			prepared := prep.Attachments[0]
 			att.UploadedFilename = prepared.UploadFilename
-			err = uploadDiscordAttachment(sender.Session.Client, prepared.UploadURL, data)
+			err = uploadFluxerAttachment(sender.Session.Client, prepared.UploadURL, data)
 			if err != nil {
 				go portal.sendMessageMetrics(evt, err, "Error reuploading media in")
 				return
@@ -1762,13 +1762,13 @@ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
 	if msg != nil {
 		dbMsg := portal.bridge.DB.Message.New()
 		dbMsg.Channel = portal.Key
-		dbMsg.DiscordID = msg.ID
+		dbMsg.FluxerID = msg.ID
 		if len(msg.Attachments) > 0 {
 			dbMsg.AttachmentID = msg.Attachments[0].ID
 		}
 		dbMsg.MXID = evt.ID
 		if sess != nil {
-			dbMsg.SenderID = sender.DiscordID
+			dbMsg.SenderID = sender.FluxerID
 		} else {
 			dbMsg.SenderID = portal.RelayWebhookID
 		}
@@ -1814,7 +1814,7 @@ func (portal *Portal) sendDeliveryReceipt(eventID id.EventID) {
 
 func (portal *Portal) HandleMatrixLeave(brSender bridge.User) {
 	sender := brSender.(*User)
-	if portal.IsPrivateChat() && sender.DiscordID == portal.Key.Receiver {
+	if portal.IsPrivateChat() && sender.FluxerID == portal.Key.Receiver {
 		portal.log.Debug().Msg("User left private chat portal, cleaning up and deleting...")
 		portal.cleanup(false)
 		portal.RemoveMXID()
@@ -1901,7 +1901,7 @@ func (portal *Portal) cleanup(puppetsOnly bool) {
 	portal.bridge.cleanupRoom(intent, portal.MXID, puppetsOnly, portal.log)
 }
 
-func (br *DiscordBridge) cleanupRoom(intent *appservice.IntentAPI, mxid id.RoomID, puppetsOnly bool, log zerolog.Logger) {
+func (br *FluxerBridge) cleanupRoom(intent *appservice.IntentAPI, mxid id.RoomID, puppetsOnly bool, log zerolog.Logger) {
 	members, err := intent.JoinedMembers(mxid)
 	if err != nil {
 		log.Err(err).Msg("Failed to get portal members for cleanup")
@@ -1955,7 +1955,7 @@ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
 		go portal.sendMessageMetrics(evt, errUserNotLoggedIn, "Ignoring")
 		return
 	}
-	if portal.IsPrivateChat() && sender.DiscordID != portal.Key.Receiver {
+	if portal.IsPrivateChat() && sender.FluxerID != portal.Key.Receiver {
 		go portal.sendMessageMetrics(evt, errUserNotReceiver, "Ignoring")
 		return
 	}
@@ -1984,7 +1984,7 @@ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
 
 	firstMsg := msg
 	if msg.AttachmentID != "" {
-		firstMsg = portal.bridge.DB.Message.GetFirstByDiscordID(portal.Key, msg.DiscordID)
+		firstMsg = portal.bridge.DB.Message.GetFirstByFluxerID(portal.Key, msg.FluxerID)
 		// TODO should the emoji be rerouted to the first message if it's different?
 	}
 
@@ -2005,7 +2005,7 @@ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
 		emojiID = variationselector.FullyQualify(emojiID)
 	}
 
-	existing := portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, msg.DiscordID, sender.DiscordID, emojiID)
+	existing := portal.bridge.DB.Reaction.GetByFluxerID(portal.Key, msg.FluxerID, sender.FluxerID, emojiID)
 	if existing != nil {
 		portal.log.Debug().
 			Str("event_id", evt.ID.String()).
@@ -2015,14 +2015,14 @@ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
 		return
 	}
 
-	err := sender.Session.MessageReactionAddUser(portal.GuildID, msg.DiscordProtoChannelID(), msg.DiscordID, emojiID)
+	err := sender.Session.MessageReactionAddUser(portal.GuildID, msg.FluxerProtoChannelID(), msg.FluxerID, emojiID)
 	go portal.sendMessageMetrics(evt, err, "Error sending")
 	if err == nil {
 		dbReaction := portal.bridge.DB.Reaction.New()
 		dbReaction.Channel = portal.Key
-		dbReaction.MessageID = msg.DiscordID
+		dbReaction.MessageID = msg.FluxerID
 		dbReaction.FirstAttachmentID = firstMsg.AttachmentID
-		dbReaction.Sender = sender.DiscordID
+		dbReaction.Sender = sender.FluxerID
 		dbReaction.EmojiName = emojiID
 		dbReaction.ThreadID = msg.ThreadID
 		dbReaction.MXID = evt.ID
@@ -2030,7 +2030,7 @@ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
 	}
 }
 
-func (portal *Portal) handleDiscordReaction(user *User, reaction *fluxergo.MessageReaction, add bool, thread *Thread, member *fluxergo.Member) {
+func (portal *Portal) handleFluxerReaction(user *User, reaction *fluxergo.MessageReaction, add bool, thread *Thread, member *fluxergo.Member) {
 	puppet := portal.bridge.GetPuppetByID(reaction.UserID)
 	if member != nil {
 		puppet.UpdateInfo(user, member.User, nil)
@@ -2041,33 +2041,33 @@ func (portal *Portal) handleDiscordReaction(user *User, reaction *fluxergo.Messa
 		Str("message_id", reaction.MessageID).
 		Str("author_id", reaction.UserID).
 		Bool("add", add).
-		Str("action", "discord reaction").
+		Str("action", "fluxer reaction").
 		Logger()
 
-	var discordID string
+	var fluxerID string
 	var matrixReaction string
 
 	if reaction.Emoji.ID != "" {
-		reactionMXC := portal.getEmojiMXCByDiscordID(reaction.Emoji.ID, reaction.Emoji.Name, reaction.Emoji.Animated)
+		reactionMXC := portal.getEmojiMXCByFluxerID(reaction.Emoji.ID, reaction.Emoji.Name, reaction.Emoji.Animated)
 		if reactionMXC.IsEmpty() {
 			return
 		}
 		matrixReaction = reactionMXC.String()
-		discordID = fmt.Sprintf("%s:%s", reaction.Emoji.Name, reaction.Emoji.ID)
+		fluxerID = fmt.Sprintf("%s:%s", reaction.Emoji.Name, reaction.Emoji.ID)
 	} else {
-		discordID = reaction.Emoji.Name
+		fluxerID = reaction.Emoji.Name
 		matrixReaction = variationselector.Add(reaction.Emoji.Name)
 	}
 
 	// Find the message that we're working with.
-	message := portal.bridge.DB.Message.GetByDiscordID(portal.Key, reaction.MessageID)
+	message := portal.bridge.DB.Message.GetByFluxerID(portal.Key, reaction.MessageID)
 	if message == nil {
 		log.Debug().Msg("Failed to add reaction to message: message not found")
 		return
 	}
 
 	// Lookup an existing reaction
-	existing := portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, message[0].DiscordID, reaction.UserID, discordID)
+	existing := portal.bridge.DB.Reaction.GetByFluxerID(portal.Key, message[0].FluxerID, reaction.UserID, fluxerID)
 	if !add {
 		if existing == nil {
 			log.Debug().Msg("Failed to remove reaction: reaction not found")
@@ -2097,7 +2097,7 @@ func (portal *Portal) handleDiscordReaction(user *User, reaction *fluxergo.Messa
 	}
 	extraContent := map[string]any{}
 	if reaction.Emoji.ID != "" {
-		extraContent["fi.mau.discord.reaction"] = map[string]any{
+		extraContent["fi.mau.fluxer.reaction"] = map[string]any{
 			"id":   reaction.Emoji.ID,
 			"name": reaction.Emoji.Name,
 			"mxc":  matrixReaction,
@@ -2121,10 +2121,10 @@ func (portal *Portal) handleDiscordReaction(user *User, reaction *fluxergo.Messa
 	if existing == nil {
 		dbReaction := portal.bridge.DB.Reaction.New()
 		dbReaction.Channel = portal.Key
-		dbReaction.MessageID = message[0].DiscordID
+		dbReaction.MessageID = message[0].FluxerID
 		dbReaction.FirstAttachmentID = message[0].AttachmentID
 		dbReaction.Sender = reaction.UserID
-		dbReaction.EmojiName = discordID
+		dbReaction.EmojiName = fluxerID
 		dbReaction.MXID = resp.EventID
 		if thread != nil {
 			dbReaction.ThreadID = thread.ID
@@ -2140,7 +2140,7 @@ func (portal *Portal) handleMatrixRedaction(sender *User, evt *event.Event) {
 			go portal.sendMessageMetrics(evt, errUserNotLoggedIn, "Ignoring")
 			return
 		}
-		if sender.DiscordID != portal.Key.Receiver {
+		if sender.FluxerID != portal.Key.Receiver {
 			go portal.sendMessageMetrics(evt, errUserNotReceiver, "Ignoring")
 			return
 		}
@@ -2157,10 +2157,10 @@ func (portal *Portal) handleMatrixRedaction(sender *User, evt *event.Event) {
 		var err error
 		// TODO add support for deleting individual attachments from messages
 		if sess != nil {
-			err = sess.ChannelMessageDelete(message.DiscordProtoChannelID(), message.DiscordID, portal.RefererOptIfUser(sess, message.ThreadID)...)
+			err = sess.ChannelMessageDelete(message.FluxerProtoChannelID(), message.FluxerID, portal.RefererOptIfUser(sess, message.ThreadID)...)
 		} else {
 			// TODO pre-validate that the message was sent by the webhook?
-			err = relayClient.WebhookMessageDelete(portal.RelayWebhookID, portal.RelayWebhookSecret, message.DiscordID)
+			err = relayClient.WebhookMessageDelete(portal.RelayWebhookID, portal.RelayWebhookSecret, message.FluxerID)
 		}
 		go portal.sendMessageMetrics(evt, err, "Error sending")
 		if err == nil {
@@ -2172,7 +2172,7 @@ func (portal *Portal) handleMatrixRedaction(sender *User, evt *event.Event) {
 	if sess != nil {
 		reaction := portal.bridge.DB.Reaction.GetByMXID(evt.Redacts)
 		if reaction != nil && reaction.Channel == portal.Key {
-			err := sess.MessageReactionRemoveUser(portal.GuildID, reaction.DiscordProtoChannelID(), reaction.MessageID, reaction.EmojiName, reaction.Sender)
+			err := sess.MessageReactionRemoveUser(portal.GuildID, reaction.FluxerProtoChannelID(), reaction.MessageID, reaction.EmojiName, reaction.Sender)
 			go portal.sendMessageMetrics(evt, err, "Error sending")
 			if err == nil {
 				reaction.Delete()
@@ -2190,18 +2190,18 @@ func (portal *Portal) HandleMatrixReadReceipt(brUser bridge.User, eventID id.Eve
 		return
 	}
 	var thread *Thread
-	discordThreadID := ""
+	fluxerThreadID := ""
 	if receipt.ThreadID != "" && receipt.ThreadID != event.ReadReceiptThreadMain {
 		thread = portal.bridge.GetThreadByRootMXID(receipt.ThreadID)
 		if thread != nil {
-			discordThreadID = thread.ID
+			fluxerThreadID = thread.ID
 		}
 	}
 	log := portal.log.With().
 		Str("sender", brUser.GetMXID().String()).
 		Str("event_id", eventID.String()).
 		Str("action", "matrix read receipt").
-		Str("discord_thread_id", discordThreadID).
+		Str("fluxer_thread_id", fluxerThreadID).
 		Logger()
 	if thread != nil {
 		if portal.bridge.Config.Bridge.AutojoinThreadOnOpen {
@@ -2218,38 +2218,38 @@ func (portal *Portal) HandleMatrixReadReceipt(brUser bridge.User, eventID id.Eve
 	}
 	msg := portal.bridge.DB.Message.GetByMXID(portal.Key, eventID)
 	if msg == nil {
-		msg = portal.bridge.DB.Message.GetClosestBefore(portal.Key, discordThreadID, receipt.Timestamp)
+		msg = portal.bridge.DB.Message.GetClosestBefore(portal.Key, fluxerThreadID, receipt.Timestamp)
 		if msg == nil {
 			log.Debug().Msg("Dropping read receipt: no messages found")
 			return
 		} else {
 			log = log.With().
 				Str("closest_event_id", msg.MXID.String()).
-				Str("closest_message_id", msg.DiscordID).
+				Str("closest_message_id", msg.FluxerID).
 				Logger()
 			log.Debug().Msg("Read receipt target event not found, using closest message")
 		}
 	} else {
 		log = log.With().
-			Str("message_id", msg.DiscordID).
+			Str("message_id", msg.FluxerID).
 			Logger()
 	}
-	if receipt.ThreadID != "" && msg.ThreadID != discordThreadID {
+	if receipt.ThreadID != "" && msg.ThreadID != fluxerThreadID {
 		log.Debug().
 			Str("receipt_thread_event_id", receipt.ThreadID.String()).
-			Str("message_discord_thread_id", msg.ThreadID).
+			Str("message_fluxer_thread_id", msg.ThreadID).
 			Msg("Dropping read receipt: thread ID mismatch")
 		return
 	}
-	resp, err := sender.Session.ChannelMessageAckNoToken(msg.DiscordProtoChannelID(), msg.DiscordID, portal.RefererOpt(msg.DiscordProtoChannelID()))
+	resp, err := sender.Session.ChannelMessageAckNoToken(msg.FluxerProtoChannelID(), msg.FluxerID, portal.RefererOpt(msg.FluxerProtoChannelID()))
 	if err != nil {
-		log.Err(err).Msg("Failed to send read receipt to Discord")
+		log.Err(err).Msg("Failed to send read receipt to Fluxer")
 	} else if resp.Token != nil {
 		log.Debug().
 			Str("unexpected_resp_token", *resp.Token).
-			Msg("Marked message as read on Discord (and got unexpected non-nil token)")
+			Msg("Marked message as read on Fluxer (and got unexpected non-nil token)")
 	} else {
-		log.Debug().Msg("Marked message as read on Discord")
+		log.Debug().Msg("Marked message as read on Fluxer")
 	}
 }
 
@@ -2513,7 +2513,7 @@ func (portal *Portal) UpdateInfo(source *User, meta *fluxergo.Channel) *fluxergo
 	log := portal.log.With().
 		Str("action", "update info").
 		Str("through_user_mxid", source.MXID.String()).
-		Str("through_user_dcid", source.DiscordID).
+		Str("through_user_dcid", source.FluxerID).
 		Logger()
 
 	if meta == nil {
@@ -2601,7 +2601,7 @@ func (portal *Portal) UpdateInfo(source *User, meta *fluxergo.Channel) *fluxergo
 	return meta
 }
 
-func (br *DiscordBridge) HandleTombstone(evt *event.Event) {
+func (br *FluxerBridge) HandleTombstone(evt *event.Event) {
 	if evt.StateKey == nil || *evt.StateKey != "" {
 		return
 	}

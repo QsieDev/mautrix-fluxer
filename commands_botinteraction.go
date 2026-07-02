@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2023 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -28,15 +28,15 @@ import (
 	"maunium.net/go/mautrix/bridge/commands"
 )
 
-var HelpSectionDiscordBots = commands.HelpSection{Name: "Discord bot interaction", Order: 30}
+var HelpSectionFluxerBots = commands.HelpSection{Name: "Fluxer bot interaction", Order: 30}
 
 var cmdCommands = &commands.FullHandler{
 	Func:    wrapCommand(fnCommands),
 	Name:    "commands",
 	Aliases: []string{"cmds", "cs"},
 	Help: commands.HelpMeta{
-		Section:     HelpSectionDiscordBots,
-		Description: "View parameters of bot interaction commands on Discord",
+		Section:     HelpSectionFluxerBots,
+		Description: "View parameters of bot interaction commands on Fluxer",
 		Args:        "search <_query_> OR help <_command_>",
 	},
 	RequiresPortal: true,
@@ -48,8 +48,8 @@ var cmdExec = &commands.FullHandler{
 	Name:    "exec",
 	Aliases: []string{"command", "cmd", "c", "exec", "e"},
 	Help: commands.HelpMeta{
-		Section:     HelpSectionDiscordBots,
-		Description: "Run bot interaction commands on Discord",
+		Section:     HelpSectionFluxerBots,
+		Description: "Run bot interaction commands on Fluxer",
 		Args:        "<_command_> [_arg=value ..._]",
 	},
 	RequiresLogin:  true,

@@ -55,7 +55,7 @@ func (user *User) tryAutomaticDoublePuppeting() {
 		return
 	}
 	user.log.Debug().Msg("Checking if double puppeting needs to be enabled")
-	puppet := user.bridge.GetPuppetByID(user.DiscordID)
+	puppet := user.bridge.GetPuppetByID(user.FluxerID)
 	if len(puppet.CustomMXID) > 0 {
 		user.log.Debug().Msg("User already has double-puppeting enabled")
 		// Custom puppet already enabled

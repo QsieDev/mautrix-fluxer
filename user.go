@@ -43,7 +43,7 @@ type User struct {
 
 	sync.Mutex
 
-	bridge *DiscordBridge
+	bridge *FluxerBridge
 	log    zerolog.Logger
 
 	PermissionLevel bridgeconfig.PermissionLevel
@@ -65,7 +65,7 @@ type User struct {
 	pendingInteractions     map[string]*WrappedCommandEvent
 	pendingInteractionsLock sync.Mutex
 
-	nextDiscordUploadID atomic.Int32
+	nextFluxerUploadID atomic.Int32
 
 	relationships map[string]*fluxergo.Relationship
 	// relationshipsReady should be protected by relationshipLock and is merely
@@ -77,7 +77,7 @@ type User struct {
 }
 
 func (user *User) GetRemoteID() string {
-	return user.DiscordID
+	return user.FluxerID
 }
 
 func (user *User) GetRemoteName() string {
@@ -87,12 +87,12 @@ func (user *User) GetRemoteName() string {
 		}
 		return fmt.Sprintf("%s#%s", user.Session.State.User.Username, user.Session.State.User.Discriminator)
 	}
-	return user.DiscordID
+	return user.FluxerID
 }
 
-var discordLog zerolog.Logger
+var fluxerLog zerolog.Logger
 
-func discordToZeroLevel(level int) zerolog.Level {
+func fluxerToZeroLevel(level int) zerolog.Level {
 	switch level {
 	case fluxergo.LogError:
 		return zerolog.ErrorLevel
@@ -109,7 +109,7 @@ func discordToZeroLevel(level int) zerolog.Level {
 
 func init() {
 	fluxergo.Logger = func(msgL, caller int, format string, a ...interface{}) {
-		discordLog.WithLevel(discordToZeroLevel(msgL)).Caller(caller+1).Msgf(strings.TrimSpace(format), a...) // zerolog-allow-msgf
+		fluxerLog.WithLevel(fluxerToZeroLevel(msgL)).Caller(caller+1).Msgf(strings.TrimSpace(format), a...) // zerolog-allow-msgf
 	}
 }
 
@@ -138,10 +138,10 @@ func (user *User) GetIDoublePuppet() bridge.DoublePuppet {
 }
 
 func (user *User) GetIGhost() bridge.Ghost {
-	if user.DiscordID == "" {
+	if user.FluxerID == "" {
 		return nil
 	}
-	p := user.bridge.GetPuppetByID(user.DiscordID)
+	p := user.bridge.GetPuppetByID(user.FluxerID)
 	if p == nil {
 		return nil
 	}
@@ -150,7 +150,7 @@ func (user *User) GetIGhost() bridge.Ghost {
 
 var _ bridge.User = (*User)(nil)
 
-func (br *DiscordBridge) loadUser(dbUser *database.User, mxid *id.UserID) *User {
+func (br *FluxerBridge) loadUser(dbUser *database.User, mxid *id.UserID) *User {
 	if dbUser == nil {
 		if mxid == nil {
 			return nil
@@ -162,8 +162,8 @@ func (br *DiscordBridge) loadUser(dbUser *database.User, mxid *id.UserID) *User 
 
 	user := br.NewUser(dbUser)
 	br.usersByMXID[user.MXID] = user
-	if user.DiscordID != "" {
-		br.usersByID[user.DiscordID] = user
+	if user.FluxerID != "" {
+		br.usersByID[user.FluxerID] = user
 	}
 	if user.ManagementRoom != "" {
 		br.managementRoomsLock.Lock()
@@ -173,7 +173,7 @@ func (br *DiscordBridge) loadUser(dbUser *database.User, mxid *id.UserID) *User 
 	return user
 }
 
-func (br *DiscordBridge) GetUserByMXID(userID id.UserID) *User {
+func (br *FluxerBridge) GetUserByMXID(userID id.UserID) *User {
 	if userID == br.Bot.UserID || br.IsGhost(userID) {
 		return nil
 	}
@@ -187,7 +187,7 @@ func (br *DiscordBridge) GetUserByMXID(userID id.UserID) *User {
 	return user
 }
 
-func (br *DiscordBridge) GetUserByID(id string) *User {
+func (br *FluxerBridge) GetUserByID(id string) *User {
 	br.usersLock.Lock()
 	defer br.usersLock.Unlock()
 
@@ -198,19 +198,19 @@ func (br *DiscordBridge) GetUserByID(id string) *User {
 	return user
 }
 
-func (br *DiscordBridge) GetCachedUserByID(id string) *User {
+func (br *FluxerBridge) GetCachedUserByID(id string) *User {
 	br.usersLock.Lock()
 	defer br.usersLock.Unlock()
 	return br.usersByID[id]
 }
 
-func (br *DiscordBridge) GetCachedUserByMXID(userID id.UserID) *User {
+func (br *FluxerBridge) GetCachedUserByMXID(userID id.UserID) *User {
 	br.usersLock.Lock()
 	defer br.usersLock.Unlock()
 	return br.usersByMXID[userID]
 }
 
-func (br *DiscordBridge) NewUser(dbUser *database.User) *User {
+func (br *FluxerBridge) NewUser(dbUser *database.User) *User {
 	user := &User{
 		User:   dbUser,
 		bridge: br,
@@ -223,12 +223,12 @@ func (br *DiscordBridge) NewUser(dbUser *database.User) *User {
 
 		relationships: make(map[string]*fluxergo.Relationship),
 	}
-	user.nextDiscordUploadID.Store(rand.Int31n(100))
+	user.nextFluxerUploadID.Store(rand.Int31n(100))
 	user.BridgeState = br.NewBridgeStateQueue(user)
 	return user
 }
 
-func (br *DiscordBridge) getAllUsersWithToken() []*User {
+func (br *FluxerBridge) getAllUsersWithToken() []*User {
 	br.usersLock.Lock()
 	defer br.usersLock.Unlock()
 
@@ -245,7 +245,7 @@ func (br *DiscordBridge) getAllUsersWithToken() []*User {
 	return users
 }
 
-func (br *DiscordBridge) startUsers() {
+func (br *FluxerBridge) startUsers() {
 	br.ZLog.Debug().Msg("Starting users")
 
 	usersWithToken := br.getAllUsersWithToken()
@@ -377,11 +377,11 @@ func (user *User) getSpaceRoom(ptr *id.RoomID, name, topic string, parent id.Roo
 }
 
 func (user *User) GetSpaceRoom() id.RoomID {
-	return user.getSpaceRoom(&user.SpaceRoom, "Discord", "Your Discord bridged chats", "")
+	return user.getSpaceRoom(&user.SpaceRoom, "Fluxer", "Your Fluxer bridged chats", "")
 }
 
 func (user *User) GetDMSpaceRoom() id.RoomID {
-	return user.getSpaceRoom(&user.DMSpaceRoom, "Direct Messages", "Your Discord direct messages", user.GetSpaceRoom())
+	return user.getSpaceRoom(&user.DMSpaceRoom, "Direct Messages", "Your Fluxer direct messages", user.GetSpaceRoom())
 }
 
 func (user *User) ViewingChannel(portal *Portal) bool {
@@ -438,8 +438,8 @@ func (user *User) syncChatDoublePuppetDetails(portal *Portal, justCreated bool) 
 	}
 }
 
-func (user *User) NextDiscordUploadID() string {
-	val := user.nextDiscordUploadID.Add(2)
+func (user *User) NextFluxerUploadID() string {
+	val := user.nextFluxerUploadID.Add(2)
 	return strconv.Itoa(int(val))
 }
 
@@ -447,7 +447,7 @@ func (user *User) Login(token string) error {
 	user.bridgeStateLock.Lock()
 	user.wasLoggedOut = false
 	user.bridgeStateLock.Unlock()
-	user.DiscordToken = token
+	user.FluxerToken = token
 	var err error
 	const maxRetries = 3
 Loop:
@@ -471,7 +471,7 @@ Loop:
 			}
 		}
 	}
-	user.DiscordToken = ""
+	user.FluxerToken = ""
 	return err
 }
 
@@ -479,19 +479,19 @@ func (user *User) IsLoggedIn() bool {
 	user.Lock()
 	defer user.Unlock()
 
-	return user.DiscordToken != ""
+	return user.FluxerToken != ""
 }
 
 func (user *User) Logout(isOverwriting bool) {
 	user.Lock()
 	defer user.Unlock()
 
-	if user.DiscordID != "" {
-		puppet := user.bridge.GetPuppetByID(user.DiscordID)
+	if user.FluxerID != "" {
+		puppet := user.bridge.GetPuppetByID(user.FluxerID)
 		if puppet.CustomMXID != "" {
 			err := puppet.SwitchCustomMXID("", "")
 			if err != nil {
-				user.log.Warn().Err(err).Msg("Failed to disable custom puppet while logging out of Discord")
+				user.log.Warn().Err(err).Msg("Failed to disable custom puppet while logging out of Fluxer")
 			}
 		}
 	}
@@ -504,16 +504,16 @@ func (user *User) Logout(isOverwriting bool) {
 
 	user.Session = nil
 	user.reconstructRelationships(nil)
-	user.DiscordToken = ""
+	user.FluxerToken = ""
 	user.ReadStateVersion = 0
 	if !isOverwriting {
 		user.bridge.usersLock.Lock()
-		if user.bridge.usersByID[user.DiscordID] == user {
-			delete(user.bridge.usersByID, user.DiscordID)
+		if user.bridge.usersByID[user.FluxerID] == user {
+			delete(user.bridge.usersByID, user.FluxerID)
 		}
 		user.bridge.usersLock.Unlock()
 	}
-	user.DiscordID = ""
+	user.FluxerID = ""
 	user.Update()
 	user.log.Info().Msg("User logged out")
 }
@@ -570,13 +570,13 @@ func (user *User) Connect() error {
 	user.reconstructRelationships(nil)
 	defer user.Unlock()
 
-	if user.DiscordToken == "" {
+	if user.FluxerToken == "" {
 		return ErrNotLoggedIn
 	}
 
-	user.log.Debug().Msg("Connecting to discord")
+	user.log.Debug().Msg("Connecting to fluxer")
 
-	session, err := fluxergo.New(user.DiscordToken)
+	session, err := fluxergo.New(user.FluxerToken)
 	if err != nil {
 		return err
 	}
@@ -588,7 +588,7 @@ func (user *User) Connect() error {
 	}
 	user.HeartbeatSession.BumpLastUsed()
 	user.Update()
-	// make discordgo use our session instead of the one it creates automatically
+	// make fluxergo use our session instead of the one it creates automatically
 	session.HeartbeatSession = *user.HeartbeatSession
 
 	if user.bridge.Config.Bridge.Proxy != "" {
@@ -610,12 +610,12 @@ func (user *User) Connect() error {
 	} else {
 		session.LogLevel = fluxergo.LogInformational
 	}
-	userDiscordLog := user.log.With().
-		Str("component", "discordgo").
+	userFluxerLog := user.log.With().
+		Str("component", "fluxergo").
 		Str("heartbeat_session", session.HeartbeatSession.ID.String()).
 		Logger()
 	session.Logger = func(msgL, caller int, format string, a ...interface{}) {
-		userDiscordLog.WithLevel(discordToZeroLevel(msgL)).Caller(caller+1).Msgf(strings.TrimSpace(format), a...) // zerolog-allow-msgf
+		userFluxerLog.WithLevel(fluxerToZeroLevel(msgL)).Caller(caller+1).Msgf(strings.TrimSpace(format), a...) // zerolog-allow-msgf
 	}
 	if !session.IsUser {
 		session.Identify.Intents = BotIntents
@@ -653,7 +653,7 @@ func (user *User) eventHandler(rawEvt any) {
 			user.log.Error().
 				Bytes(zerolog.ErrorStackFieldName, debug.Stack()).
 				Any(zerolog.ErrorFieldName, err).
-				Msg("Panic in Discord event handler")
+				Msg("Panic in Fluxer event handler")
 		}
 	}()
 	switch evt := rawEvt.(type) {
@@ -674,9 +674,9 @@ func (user *User) eventHandler(rawEvt any) {
 	case *fluxergo.GuildUpdate:
 		user.guildUpdateHandler(evt)
 	case *fluxergo.GuildRoleCreate:
-		user.discordRoleToDB(evt.GuildID, evt.Role, nil, nil)
+		user.fluxerRoleToDB(evt.GuildID, evt.Role, nil, nil)
 	case *fluxergo.GuildRoleUpdate:
-		user.discordRoleToDB(evt.GuildID, evt.Role, nil, nil)
+		user.fluxerRoleToDB(evt.GuildID, evt.Role, nil, nil)
 	case *fluxergo.GuildRoleDelete:
 		user.bridge.DB.Role.DeleteByID(evt.GuildID, evt.RoleID)
 	case *fluxergo.ChannelCreate:
@@ -767,22 +767,22 @@ func (s ChannelSlice) Swap(i, j int) {
 }
 
 func (user *User) readyHandler(r *fluxergo.Ready) {
-	user.log.Debug().Msg("Discord connection ready")
+	user.log.Debug().Msg("Fluxer connection ready")
 	user.bridgeStateLock.Lock()
 	user.wasLoggedOut = false
 	user.bridgeStateLock.Unlock()
 
-	if user.DiscordID != r.User.ID {
+	if user.FluxerID != r.User.ID {
 		user.bridge.usersLock.Lock()
-		user.DiscordID = r.User.ID
-		if previousUser, ok := user.bridge.usersByID[user.DiscordID]; ok && previousUser != user {
+		user.FluxerID = r.User.ID
+		if previousUser, ok := user.bridge.usersByID[user.FluxerID]; ok && previousUser != user {
 			user.log.Warn().
 				Str("previous_user_id", previousUser.MXID.String()).
-				Msg("Another user is logged in with same Discord ID, logging them out")
+				Msg("Another user is logged in with same Fluxer ID, logging them out")
 			// TODO send notice?
 			previousUser.Logout(true)
 		}
-		user.bridge.usersByID[user.DiscordID] = user
+		user.bridge.usersByID[user.FluxerID] = user
 		user.bridge.usersLock.Unlock()
 		user.Update()
 	}
@@ -794,7 +794,7 @@ func (user *User) readyHandler(r *fluxergo.Ready) {
 	updateTS := time.Now()
 	portalsInSpace := make(map[string]bool)
 	for _, guild := range user.GetPortals() {
-		portalsInSpace[guild.DiscordID] = guild.InSpace
+		portalsInSpace[guild.FluxerID] = guild.InSpace
 	}
 	for _, guild := range r.Guilds {
 		user.handleGuild(guild, updateTS, portalsInSpace[guild.ID])
@@ -848,7 +848,7 @@ func (user *User) subscribeGuilds(delay time.Duration) {
 }
 
 func (user *User) resumeHandler(_ *fluxergo.Resumed) {
-	user.log.Debug().Msg("Discord connection resumed")
+	user.log.Debug().Msg("Fluxer connection resumed")
 	user.subscribeGuilds(0 * time.Second)
 	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateConnected})
 }
@@ -938,7 +938,7 @@ func (user *User) handlePrivateChannel(portal *Portal, meta *fluxergo.Channel, t
 		portal.ForwardBackfillMissed(user, meta.LastMessageID, nil)
 	}
 	user.MarkInPortal(database.UserPortal{
-		DiscordID: portal.Key.ChannelID,
+		FluxerID:  portal.Key.ChannelID,
 		Type:      database.UserPortalTypeDM,
 		Timestamp: timestamp,
 		InSpace:   isInSpace || user.addPrivateChannelToSpace(portal),
@@ -959,7 +959,7 @@ func (user *User) addGuildToSpace(guild *Guild, isInSpace bool, timestamp time.T
 		}
 	}
 	user.MarkInPortal(database.UserPortal{
-		DiscordID: guild.ID,
+		FluxerID:  guild.ID,
 		Type:      database.UserPortalTypeGuild,
 		Timestamp: timestamp,
 		InSpace:   isInSpace,
@@ -967,7 +967,7 @@ func (user *User) addGuildToSpace(guild *Guild, isInSpace bool, timestamp time.T
 	return isInSpace
 }
 
-func (user *User) discordRoleToDB(guildID string, role *fluxergo.Role, dbRole *database.Role, txn dbutil.Execable) bool {
+func (user *User) fluxerRoleToDB(guildID string, role *fluxergo.Role, dbRole *database.Role, txn dbutil.Execable) bool {
 	var changed bool
 	if dbRole == nil {
 		dbRole = user.bridge.DB.Role.New()
@@ -1003,7 +1003,7 @@ func (user *User) handleGuildRoles(guildID string, newRoles []*fluxergo.Role) {
 		panic(err)
 	}
 	for _, role := range newRoles {
-		user.discordRoleToDB(guildID, role, existingRoleMap[role.ID], txn)
+		user.fluxerRoleToDB(guildID, role, existingRoleMap[role.ID], txn)
 		delete(existingRoleMap, role.ID)
 	}
 	for _, removeRole := range existingRoleMap {
@@ -1054,7 +1054,7 @@ func (user *User) handleGuild(meta *fluxergo.Guild, timestamp time.Time, isInSpa
 func (user *User) connectedHandler(_ *fluxergo.Connect) {
 	user.bridgeStateLock.Lock()
 	defer user.bridgeStateLock.Unlock()
-	user.log.Debug().Msg("Connected to Discord")
+	user.log.Debug().Msg("Connected to Fluxer")
 	if user.wasDisconnected {
 		user.wasDisconnected = false
 	}
@@ -1064,20 +1064,20 @@ func (user *User) disconnectedHandler(_ *fluxergo.Disconnect) {
 	user.bridgeStateLock.Lock()
 	defer user.bridgeStateLock.Unlock()
 	if user.wasLoggedOut {
-		user.log.Debug().Msg("Disconnected from Discord (not updating bridge state as user was just logged out)")
+		user.log.Debug().Msg("Disconnected from Fluxer (not updating bridge state as user was just logged out)")
 		return
 	}
-	user.log.Debug().Msg("Disconnected from Discord")
+	user.log.Debug().Msg("Disconnected from Fluxer")
 	user.wasDisconnected = true
-	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateTransientDisconnect, Error: "dc-transient-disconnect", Message: "Temporarily disconnected from Discord, trying to reconnect"})
+	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateTransientDisconnect, Error: "dc-transient-disconnect", Message: "Temporarily disconnected from Fluxer, trying to reconnect"})
 }
 
 func (user *User) invalidAuthHandler(_ *fluxergo.InvalidAuth) {
 	user.bridgeStateLock.Lock()
 	defer user.bridgeStateLock.Unlock()
-	user.log.Info().Msg("Got logged out from Discord due to invalid token")
+	user.log.Info().Msg("Got logged out from Fluxer due to invalid token")
 	user.wasLoggedOut = true
-	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateBadCredentials, Error: "dc-websocket-disconnect-4004", Message: "Discord access token is no longer valid, please log in again"})
+	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateBadCredentials, Error: "dc-websocket-disconnect-4004", Message: "Fluxer access token is no longer valid, please log in again"})
 	go user.Logout(false)
 }
 
@@ -1135,7 +1135,7 @@ func (user *User) threadListSyncHandler(t *fluxergo.ThreadListSync) {
 		ctx := log.WithContext(context.Background())
 		thread := user.bridge.GetThreadByID(meta.ID, nil)
 		if thread == nil {
-			msg := user.bridge.DB.Message.GetByDiscordID(database.NewPortalKey(meta.ParentID, ""), meta.ID)
+			msg := user.bridge.DB.Message.GetByFluxerID(database.NewPortalKey(meta.ParentID, ""), meta.ID)
 			if len(msg) == 0 {
 				log.Debug().Msg("Found unknown thread in thread list sync and don't have message")
 			} else {
@@ -1269,7 +1269,7 @@ func (user *User) pushPortalMessage(msg interface{}, typeName, channelID, guildI
 	portal, thread := user.findPortal(channelID)
 	if portal == nil {
 		user.log.Debug().
-			Str("discord_event", typeName).
+			Str("fluxer_event", typeName).
 			Str("guild_id", guildID).
 			Str("channel_id", channelID).
 			Msg("Dropping event in unknown channel")
@@ -1279,20 +1279,20 @@ func (user *User) pushPortalMessage(msg interface{}, typeName, channelID, guildI
 		return
 	}
 
-	wrappedMsg := portalDiscordMessage{
+	wrappedMsg := portalFluxerMessage{
 		msg:    msg,
 		user:   user,
 		thread: thread,
 	}
 	select {
-	case portal.discordMessages <- wrappedMsg:
+	case portal.fluxerMessages <- wrappedMsg:
 	default:
 		user.log.Warn().
-			Str("discord_event", typeName).
+			Str("fluxer_event", typeName).
 			Str("guild_id", guildID).
 			Str("channel_id", channelID).
 			Msg("Portal message buffer is full")
-		portal.discordMessages <- wrappedMsg
+		portal.fluxerMessages <- wrappedMsg
 	}
 }
 
@@ -1329,7 +1329,7 @@ func (user *User) messageAckHandler(m *fluxergo.MessageAck) {
 	if dp == nil {
 		return
 	}
-	msg := user.bridge.DB.Message.GetLastByDiscordID(portal.Key, m.MessageID)
+	msg := user.bridge.DB.Message.GetLastByFluxerID(portal.Key, m.MessageID)
 	if msg == nil {
 		user.log.Debug().
 			Str("channel_id", m.ChannelID).Str("message_id", m.MessageID).
@@ -1339,12 +1339,12 @@ func (user *User) messageAckHandler(m *fluxergo.MessageAck) {
 	err := dp.CustomIntent().SetReadMarkers(portal.MXID, user.makeReadMarkerContent(msg.MXID))
 	if err != nil {
 		user.log.Error().Err(err).
-			Str("event_id", msg.MXID.String()).Str("message_id", msg.DiscordID).
+			Str("event_id", msg.MXID.String()).Str("message_id", msg.FluxerID).
 			Msg("Failed to mark event as read")
 	} else {
 		user.log.Debug().
-			Str("event_id", msg.MXID.String()).Str("message_id", msg.DiscordID).
-			Msg("Marked event as read after Discord message ack")
+			Str("event_id", msg.MXID.String()).Str("message_id", msg.FluxerID).
+			Msg("Marked event as read after Fluxer message ack")
 		if user.ReadStateVersion < m.Version {
 			user.ReadStateVersion = m.Version
 			// TODO maybe don't update every time?
@@ -1354,7 +1354,7 @@ func (user *User) messageAckHandler(m *fluxergo.MessageAck) {
 }
 
 func (user *User) typingStartHandler(t *fluxergo.TypingStart) {
-	if t.UserID == user.DiscordID {
+	if t.UserID == user.FluxerID {
 		return
 	}
 	portal := user.GetExistingPortalByID(t.ChannelID)
@@ -1365,7 +1365,7 @@ func (user *User) typingStartHandler(t *fluxergo.TypingStart) {
 	if targetUser != nil {
 		return
 	}
-	portal.handleDiscordTyping(t)
+	portal.handleFluxerTyping(t)
 }
 
 func (user *User) interactionSuccessHandler(s *fluxergo.InteractionSuccess) {
@@ -1434,7 +1434,7 @@ func (user *User) ensureInvited(intent *appservice.IntentAPI, roomID id.RoomID, 
 func (user *User) getDirectChats() map[id.UserID][]id.RoomID {
 	chats := map[id.UserID][]id.RoomID{}
 
-	privateChats := user.bridge.DB.Portal.FindPrivateChatsOf(user.DiscordID)
+	privateChats := user.bridge.DB.Portal.FindPrivateChatsOf(user.FluxerID)
 	for _, portal := range privateChats {
 		if portal.MXID != "" {
 			puppetMXID := user.bridge.FormatPuppetMXID(portal.Key.Receiver)

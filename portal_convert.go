@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2023 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -53,9 +53,9 @@ func (portal *Portal) createMediaFailedMessage(bridgeErr error) *event.MessageEv
 	}
 }
 
-const DiscordStickerSize = 160
+const FluxerStickerSize = 160
 
-func (portal *Portal) convertDiscordFile(ctx context.Context, typeName string, intent *appservice.IntentAPI, id, url string, content *event.MessageEventContent) *event.MessageEventContent {
+func (portal *Portal) convertFluxerFile(ctx context.Context, typeName string, intent *appservice.IntentAPI, id, url string, content *event.MessageEventContent) *event.MessageEventContent {
 	meta := AttachmentMeta{AttachmentID: id, MimeType: content.Info.MimeType}
 	if typeName == "sticker" && content.Info.MimeType == "application/json" {
 		meta.Converter = portal.bridge.convertLottie
@@ -89,23 +89,23 @@ func (portal *Portal) cleanupConvertedStickerInfo(content *event.MessageEventCon
 		return
 	}
 	if content.Info.Width == 0 && content.Info.Height == 0 {
-		content.Info.Width = DiscordStickerSize
-		content.Info.Height = DiscordStickerSize
-	} else if content.Info.Width > DiscordStickerSize || content.Info.Height > DiscordStickerSize {
+		content.Info.Width = FluxerStickerSize
+		content.Info.Height = FluxerStickerSize
+	} else if content.Info.Width > FluxerStickerSize || content.Info.Height > FluxerStickerSize {
 		if content.Info.Width > content.Info.Height {
-			content.Info.Height /= content.Info.Width / DiscordStickerSize
-			content.Info.Width = DiscordStickerSize
+			content.Info.Height /= content.Info.Width / FluxerStickerSize
+			content.Info.Width = FluxerStickerSize
 		} else if content.Info.Width < content.Info.Height {
-			content.Info.Width /= content.Info.Height / DiscordStickerSize
-			content.Info.Height = DiscordStickerSize
+			content.Info.Width /= content.Info.Height / FluxerStickerSize
+			content.Info.Height = FluxerStickerSize
 		} else {
-			content.Info.Width = DiscordStickerSize
-			content.Info.Height = DiscordStickerSize
+			content.Info.Width = FluxerStickerSize
+			content.Info.Height = FluxerStickerSize
 		}
 	}
 }
 
-func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *fluxergo.StickerItem) *ConvertedMessage {
+func (portal *Portal) convertFluxerSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *fluxergo.StickerItem) *ConvertedMessage {
 	var mime string
 	switch sticker.FormatType {
 	case fluxergo.StickerFormatTypePNG:
@@ -132,7 +132,7 @@ func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appserv
 	mxc := portal.bridge.DMA.StickerMXC(sticker.ID, sticker.FormatType)
 	// TODO add config option to use direct media even for lottie stickers
 	if mxc.IsEmpty() && mime != "application/json" {
-		content = portal.convertDiscordFile(ctx, "sticker", intent, sticker.ID, sticker.URL(), content)
+		content = portal.convertFluxerFile(ctx, "sticker", intent, sticker.ID, sticker.URL(), content)
 	} else {
 		content.URL = mxc.CUString()
 	}
@@ -144,7 +144,7 @@ func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appserv
 	}
 }
 
-func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *fluxergo.MessageAttachment) *ConvertedMessage {
+func (portal *Portal) convertFluxerAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *fluxergo.MessageAttachment) *ConvertedMessage {
 	content := &event.MessageEventContent{
 		Body: att.Filename,
 		Info: &event.FileInfo{
@@ -187,7 +187,7 @@ func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *apps
 	}
 	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, messageID, att)
 	if mxc.IsEmpty() {
-		content = portal.convertDiscordFile(ctx, "attachment", intent, att.ID, att.URL, content)
+		content = portal.convertFluxerFile(ctx, "attachment", intent, att.ID, att.URL, content)
 	} else {
 		content.URL = mxc.CUString()
 	}
@@ -199,7 +199,7 @@ func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *apps
 	}
 }
 
-func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed) *ConvertedMessage {
+func (portal *Portal) convertFluxerVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed) *ConvertedMessage {
 	attachmentID := fmt.Sprintf("video_%s", embed.URL)
 	var proxyURL string
 	if embed.Video != nil {
@@ -258,7 +258,7 @@ func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *apps
 	extra := map[string]any{}
 	if content.MsgType == event.MsgVideo && embed.Type == fluxergo.EmbedTypeGifv {
 		extra["info"] = map[string]any{
-			"fi.mau.discord.gifv":  true,
+			"fi.mau.fluxer.gifv":   true,
 			"fi.mau.gif":           true,
 			"fi.mau.loop":          true,
 			"fi.mau.autoplay":      true,
@@ -274,13 +274,13 @@ func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *apps
 	}
 }
 
-func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet, intent *appservice.IntentAPI, msg *fluxergo.Message) []*ConvertedMessage {
+func (portal *Portal) convertFluxerMessage(ctx context.Context, puppet *Puppet, intent *appservice.IntentAPI, msg *fluxergo.Message) []*ConvertedMessage {
 	predictedLength := len(msg.Attachments) + len(msg.StickerItems)
 	if msg.Content != "" {
 		predictedLength++
 	}
 	parts := make([]*ConvertedMessage, 0, predictedLength)
-	if textPart := portal.convertDiscordTextMessage(ctx, intent, msg); textPart != nil {
+	if textPart := portal.convertFluxerTextMessage(ctx, intent, msg); textPart != nil {
 		parts = append(parts, textPart)
 	}
 	log := zerolog.Ctx(ctx)
@@ -291,7 +291,7 @@ func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet,
 		}
 		handledIDs[att.ID] = struct{}{}
 		log := log.With().Str("attachment_id", att.ID).Logger()
-		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg.ID, att); part != nil {
+		if part := portal.convertFluxerAttachment(log.WithContext(ctx), intent, msg.ID, att); part != nil {
 			parts = append(parts, part)
 		}
 	}
@@ -301,16 +301,16 @@ func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet,
 		}
 		handledIDs[sticker.ID] = struct{}{}
 		log := log.With().Str("sticker_id", sticker.ID).Logger()
-		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, sticker); part != nil {
+		if part := portal.convertFluxerSticker(log.WithContext(ctx), intent, sticker); part != nil {
 			parts = append(parts, part)
 		}
 	}
 	for i, embed := range msg.Embeds {
-		// Ignore non-video embeds, they're handled in convertDiscordTextMessage
+		// Ignore non-video embeds, they're handled in convertFluxerTextMessage
 		if getEmbedType(msg, embed) != EmbedVideo {
 			continue
 		}
-		// Discord deduplicates embeds by URL. It makes things easier for us too.
+		// Fluxer deduplicates embeds by URL. It makes things easier for us too.
 		if _, handled := handledIDs[embed.URL]; handled {
 			continue
 		}
@@ -320,7 +320,7 @@ func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet,
 			Str("embed_type", string(embed.Type)).
 			Int("embed_index", i).
 			Logger()
-		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, embed)
+		part := portal.convertFluxerVideoEmbed(log.WithContext(ctx), intent, embed)
 		if part != nil {
 			parts = append(parts, part)
 		}
@@ -346,20 +346,20 @@ func (puppet *Puppet) addMemberMeta(part *ConvertedMessage, msg *fluxergo.Messag
 		part.Extra = make(map[string]any)
 	}
 	var avatarURL id.ContentURI
-	var discordAvatarURL string
+	var fluxerAvatarURL string
 	if msg.Member.Avatar != "" {
 		var err error
-		avatarURL, discordAvatarURL, err = puppet.bridge.reuploadUserAvatar(puppet.DefaultIntent(), msg.GuildID, msg.Author.ID, msg.Member.Avatar)
+		avatarURL, fluxerAvatarURL, err = puppet.bridge.reuploadUserAvatar(puppet.DefaultIntent(), msg.GuildID, msg.Author.ID, msg.Member.Avatar)
 		if err != nil {
 			puppet.log.Warn().Err(err).
 				Str("avatar_id", msg.Member.Avatar).
 				Msg("Failed to reupload guild user avatar")
 		}
 	}
-	part.Extra["fi.mau.discord.guild_member_metadata"] = map[string]any{
+	part.Extra["fi.mau.fluxer.guild_member_metadata"] = map[string]any{
 		"nick":       msg.Member.Nick,
 		"avatar_id":  msg.Member.Avatar,
-		"avatar_url": discordAvatarURL,
+		"avatar_url": fluxerAvatarURL,
 		"avatar_mxc": avatarURL.String(),
 	}
 	if msg.Member.Nick != "" || !avatarURL.IsEmpty() {
@@ -395,7 +395,7 @@ func (puppet *Puppet) addWebhookMeta(part *ConvertedMessage, msg *fluxergo.Messa
 				Msg("Failed to reupload webhook avatar")
 		}
 	}
-	part.Extra["fi.mau.discord.webhook_metadata"] = map[string]any{
+	part.Extra["fi.mau.fluxer.webhook_metadata"] = map[string]any{
 		"id":         msg.WebhookID,
 		"name":       msg.Author.Username,
 		"avatar_id":  msg.Author.Avatar,
@@ -421,27 +421,27 @@ func (puppet *Puppet) addWebhookMeta(part *ConvertedMessage, msg *fluxergo.Messa
 }
 
 const (
-	embedHTMLWrapper         = `<blockquote class="discord-embed">%s</blockquote>`
-	embedHTMLWrapperColor    = `<blockquote class="discord-embed" background-color="#%06X">%s</blockquote>`
-	embedHTMLAuthorWithImage = `<p class="discord-embed-author"><img data-mx-emoticon height="24" src="%s" title="Author icon" alt="">&nbsp;<span>%s</span></p>`
-	embedHTMLAuthorPlain     = `<p class="discord-embed-author"><span>%s</span></p>`
+	embedHTMLWrapper         = `<blockquote class="fluxer-embed">%s</blockquote>`
+	embedHTMLWrapperColor    = `<blockquote class="fluxer-embed" background-color="#%06X">%s</blockquote>`
+	embedHTMLAuthorWithImage = `<p class="fluxer-embed-author"><img data-mx-emoticon height="24" src="%s" title="Author icon" alt="">&nbsp;<span>%s</span></p>`
+	embedHTMLAuthorPlain     = `<p class="fluxer-embed-author"><span>%s</span></p>`
 	embedHTMLAuthorLink      = `<a href="%s">%s</a>`
-	embedHTMLTitleWithLink   = `<p class="discord-embed-title"><a href="%s"><strong>%s</strong></a></p>`
-	embedHTMLTitlePlain      = `<p class="discord-embed-title"><strong>%s</strong></p>`
-	embedHTMLDescription     = `<p class="discord-embed-description">%s</p>`
+	embedHTMLTitleWithLink   = `<p class="fluxer-embed-title"><a href="%s"><strong>%s</strong></a></p>`
+	embedHTMLTitlePlain      = `<p class="fluxer-embed-title"><strong>%s</strong></p>`
+	embedHTMLDescription     = `<p class="fluxer-embed-description">%s</p>`
 	embedHTMLFieldName       = `<th>%s</th>`
 	embedHTMLFieldValue      = `<td>%s</td>`
-	embedHTMLFields          = `<table class="discord-embed-fields"><tr>%s</tr><tr>%s</tr></table>`
-	embedHTMLLinearField     = `<p class="discord-embed-field" x-inline="%s"><strong>%s</strong><br><span>%s</span></p>`
-	embedHTMLImage           = `<p class="discord-embed-image"><img src="%s" alt="" title="Embed image"></p>`
-	embedHTMLFooterWithImage = `<p class="discord-embed-footer"><sub><img data-mx-emoticon height="20" src="%s" title="Footer icon" alt="">&nbsp;<span>%s</span>%s</sub></p>`
-	embedHTMLFooterPlain     = `<p class="discord-embed-footer"><sub><span>%s</span>%s</sub></p>`
-	embedHTMLFooterOnlyDate  = `<p class="discord-embed-footer"><sub>%s</sub></p>`
+	embedHTMLFields          = `<table class="fluxer-embed-fields"><tr>%s</tr><tr>%s</tr></table>`
+	embedHTMLLinearField     = `<p class="fluxer-embed-field" x-inline="%s"><strong>%s</strong><br><span>%s</span></p>`
+	embedHTMLImage           = `<p class="fluxer-embed-image"><img src="%s" alt="" title="Embed image"></p>`
+	embedHTMLFooterWithImage = `<p class="fluxer-embed-footer"><sub><img data-mx-emoticon height="20" src="%s" title="Footer icon" alt="">&nbsp;<span>%s</span>%s</sub></p>`
+	embedHTMLFooterPlain     = `<p class="fluxer-embed-footer"><sub><span>%s</span>%s</sub></p>`
+	embedHTMLFooterOnlyDate  = `<p class="fluxer-embed-footer"><sub>%s</sub></p>`
 	embedHTMLDate            = `<time datetime="%s">%s</time>`
 	embedFooterDateSeparator = ` • `
 )
 
-func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed, msgID string, index int) string {
+func (portal *Portal) convertFluxerRichEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed, msgID string, index int) string {
 	log := zerolog.Ctx(ctx)
 	var htmlParts []string
 	if embed.Author != nil {
@@ -463,7 +463,7 @@ func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appse
 	}
 	if embed.Title != "" {
 		var titleHTML string
-		baseTitleHTML := portal.renderDiscordMarkdownOnlyHTML(embed.Title, false)
+		baseTitleHTML := portal.renderFluxerMarkdownOnlyHTML(embed.Title, false)
 		if embed.URL != "" {
 			titleHTML = fmt.Sprintf(embedHTMLTitleWithLink, html.EscapeString(embed.URL), baseTitleHTML)
 		} else {
@@ -472,7 +472,7 @@ func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appse
 		htmlParts = append(htmlParts, titleHTML)
 	}
 	if embed.Description != "" {
-		htmlParts = append(htmlParts, fmt.Sprintf(embedHTMLDescription, portal.renderDiscordMarkdownOnlyHTML(embed.Description, true)))
+		htmlParts = append(htmlParts, fmt.Sprintf(embedHTMLDescription, portal.renderFluxerMarkdownOnlyHTML(embed.Description, true)))
 	}
 	for i := 0; i < len(embed.Fields); i++ {
 		item := embed.Fields[i]
@@ -489,15 +489,15 @@ func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appse
 			headerParts := make([]string, len(splitItems))
 			contentParts := make([]string, len(splitItems))
 			for j, splitItem := range splitItems {
-				headerParts[j] = fmt.Sprintf(embedHTMLFieldName, portal.renderDiscordMarkdownOnlyHTML(splitItem.Name, false))
-				contentParts[j] = fmt.Sprintf(embedHTMLFieldValue, portal.renderDiscordMarkdownOnlyHTML(splitItem.Value, true))
+				headerParts[j] = fmt.Sprintf(embedHTMLFieldName, portal.renderFluxerMarkdownOnlyHTML(splitItem.Name, false))
+				contentParts[j] = fmt.Sprintf(embedHTMLFieldValue, portal.renderFluxerMarkdownOnlyHTML(splitItem.Value, true))
 			}
 			htmlParts = append(htmlParts, fmt.Sprintf(embedHTMLFields, strings.Join(headerParts, ""), strings.Join(contentParts, "")))
 		} else {
 			htmlParts = append(htmlParts, fmt.Sprintf(embedHTMLLinearField,
 				strconv.FormatBool(item.Inline),
-				portal.renderDiscordMarkdownOnlyHTML(item.Name, false),
-				portal.renderDiscordMarkdownOnlyHTML(item.Value, true),
+				portal.renderFluxerMarkdownOnlyHTML(item.Name, false),
+				portal.renderFluxerMarkdownOnlyHTML(item.Value, true),
 			))
 		}
 	}
@@ -516,7 +516,7 @@ func (portal *Portal) convertDiscordRichEmbed(ctx context.Context, intent *appse
 		if err != nil {
 			log.Warn().Err(err).Msg("Failed to parse timestamp in embed")
 		} else {
-			formattedTime = parsedTS.Format(discordTimestampStyle('F').Format())
+			formattedTime = parsedTS.Format(fluxerTimestampStyle('F').Format())
 		}
 		embedDateHTML = fmt.Sprintf(embedHTMLDate, embed.Timestamp, formattedTime)
 	}
@@ -559,7 +559,7 @@ type BeeperLinkPreview struct {
 	ImageEncryption *event.EncryptedFileInfo `json:"beeper:image:encryption,omitempty"`
 }
 
-func (portal *Portal) convertDiscordLinkEmbedImage(ctx context.Context, intent *appservice.IntentAPI, url string, width, height int, preview *BeeperLinkPreview) {
+func (portal *Portal) convertFluxerLinkEmbedImage(ctx context.Context, intent *appservice.IntentAPI, url string, width, height int, preview *BeeperLinkPreview) {
 	dbFile, err := portal.bridge.copyAttachmentToMatrix(intent, url, portal.Encrypted, NoMeta)
 	if err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Msg("Failed to reupload image in URL preview")
@@ -584,15 +584,15 @@ func (portal *Portal) convertDiscordLinkEmbedImage(ctx context.Context, intent *
 	}
 }
 
-func (portal *Portal) convertDiscordLinkEmbedToBeeper(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed) *BeeperLinkPreview {
+func (portal *Portal) convertFluxerLinkEmbedToBeeper(ctx context.Context, intent *appservice.IntentAPI, embed *fluxergo.MessageEmbed) *BeeperLinkPreview {
 	var preview BeeperLinkPreview
 	preview.MatchedURL = embed.URL
 	preview.Title = embed.Title
 	preview.Description = embed.Description
 	if embed.Image != nil {
-		portal.convertDiscordLinkEmbedImage(ctx, intent, embed.Image.ProxyURL, embed.Image.Width, embed.Image.Height, &preview)
+		portal.convertFluxerLinkEmbedImage(ctx, intent, embed.Image.ProxyURL, embed.Image.Width, embed.Image.Height, &preview)
 	} else if embed.Thumbnail != nil {
-		portal.convertDiscordLinkEmbedImage(ctx, intent, embed.Thumbnail.ProxyURL, embed.Thumbnail.Width, embed.Thumbnail.Height, &preview)
+		portal.convertFluxerLinkEmbedImage(ctx, intent, embed.Thumbnail.ProxyURL, embed.Thumbnail.Width, embed.Thumbnail.Height, &preview)
 	}
 	return &preview
 }
@@ -601,7 +601,7 @@ const msgInteractionTemplateHTML = `<blockquote>
 <a href="https://matrix.to/#/%s">%s</a> used <font color="#3771bb">/%s</font>
 </blockquote>`
 
-const msgComponentTemplateHTML = `<p>This message contains interactive elements. Use the Discord app to interact with the message.</p>`
+const msgComponentTemplateHTML = `<p>This message contains interactive elements. Use the Fluxer app to interact with the message.</p>`
 
 type BridgeEmbedType int
 
@@ -650,11 +650,11 @@ func isPlainGifMessage(msg *fluxergo.Message) bool {
 	embed := msg.Embeds[0]
 	isGifVideo := embed.Type == fluxergo.EmbedTypeGifv && embed.Video != nil
 	isGifImage := embed.Type == fluxergo.EmbedTypeImage && embed.Image == nil && embed.Thumbnail != nil && embed.Title == ""
-	contentIsOnlyURL := msg.Content == embed.URL || discordLinkRegexFull.MatchString(msg.Content)
+	contentIsOnlyURL := msg.Content == embed.URL || fluxerLinkRegexFull.MatchString(msg.Content)
 	return contentIsOnlyURL && (isGifVideo || isGifImage)
 }
 
-func (portal *Portal) convertDiscordMentions(msg *fluxergo.Message, syncGhosts bool) *event.Mentions {
+func (portal *Portal) convertFluxerMentions(msg *fluxergo.Message, syncGhosts bool) *event.Mentions {
 	var matrixMentions event.Mentions
 	for _, mention := range msg.Mentions {
 		puppet := portal.bridge.GetPuppetByID(mention.ID)
@@ -682,7 +682,7 @@ const forwardTemplateHTML = `<blockquote>
 <p>%s</p>
 </blockquote>`
 
-func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *fluxergo.Message) *ConvertedMessage {
+func (portal *Portal) convertFluxerTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *fluxergo.Message) *ConvertedMessage {
 	log := zerolog.Ctx(ctx)
 	if msg.Type == fluxergo.MessageTypeCall {
 		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{
@@ -702,17 +702,17 @@ func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *app
 		htmlParts = append(htmlParts, fmt.Sprintf(msgInteractionTemplateHTML, puppet.MXID, puppet.Name, msg.Interaction.Name))
 	}
 	if msg.Content != "" && !isPlainGifMessage(msg) {
-		htmlParts = append(htmlParts, portal.renderDiscordMarkdownOnlyHTML(msg.Content, true))
+		htmlParts = append(htmlParts, portal.renderFluxerMarkdownOnlyHTML(msg.Content, true))
 	} else if msg.MessageReference != nil &&
 		msg.MessageReference.Type == fluxergo.MessageReferenceTypeForward &&
 		len(msg.MessageSnapshots) > 0 &&
 		msg.MessageSnapshots[0].Message != nil {
-		forwardedHTML := portal.renderDiscordMarkdownOnlyHTMLNoUnwrap(msg.MessageSnapshots[0].Message.Content, true)
+		forwardedHTML := portal.renderFluxerMarkdownOnlyHTMLNoUnwrap(msg.MessageSnapshots[0].Message.Content, true)
 		msgTSText := msg.MessageSnapshots[0].Message.Timestamp.Format("2006-01-02 15:04 MST")
 		origLink := fmt.Sprintf("unknown channel • %s", msgTSText)
 		forwardedFromPortal := portal.bridge.GetExistingPortalByID(database.NewPortalKey(msg.MessageReference.ChannelID, ""))
 		if forwardedFromPortal != nil {
-			origMessage := portal.bridge.DB.Message.GetFirstByDiscordID(forwardedFromPortal.Key, msg.MessageReference.MessageID)
+			origMessage := portal.bridge.DB.Message.GetFirstByFluxerID(forwardedFromPortal.Key, msg.MessageReference.MessageID)
 			if origMessage != nil {
 				origLink = fmt.Sprintf(
 					`<a href="%s">#%s • %s</a>`,
@@ -745,10 +745,10 @@ func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *app
 		switch getEmbedType(msg, embed) {
 		case EmbedRich:
 			log := with.Str("computed_embed_type", "rich").Logger()
-			htmlParts = append(htmlParts, portal.convertDiscordRichEmbed(log.WithContext(ctx), intent, embed, msg.ID, i))
+			htmlParts = append(htmlParts, portal.convertFluxerRichEmbed(log.WithContext(ctx), intent, embed, msg.ID, i))
 		case EmbedLinkPreview:
 			log := with.Str("computed_embed_type", "link preview").Logger()
-			previews = append(previews, portal.convertDiscordLinkEmbedToBeeper(log.WithContext(ctx), intent, embed))
+			previews = append(previews, portal.convertFluxerLinkEmbedToBeeper(log.WithContext(ctx), intent, embed))
 		case EmbedVideo:
 			// Ignore video embeds, they're handled as separate messages
 		default:

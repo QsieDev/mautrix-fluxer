@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2024 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -49,7 +49,7 @@ import (
 )
 
 type DirectMediaAPI struct {
-	bridge *DiscordBridge
+	bridge *FluxerBridge
 	ks     *federation.KeyServer
 	cfg    config.DirectMedia
 	log    zerolog.Logger
@@ -71,7 +71,7 @@ type AttachmentCacheValue struct {
 	Expiry time.Time
 }
 
-func newDirectMediaAPI(br *DiscordBridge) *DirectMediaAPI {
+func newDirectMediaAPI(br *FluxerBridge) *DirectMediaAPI {
 	if !br.Config.Bridge.DirectMedia.Enabled {
 		return nil
 	}
@@ -340,7 +340,7 @@ func (dma *DirectMediaAPI) fetchNewAttachmentURL(ctx context.Context, meta *Atta
 		if user == nil || user.Session == nil {
 			continue
 		}
-		perms, err := user.Session.State.UserChannelPermissions(user.DiscordID, channelIDStr)
+		perms, err := user.Session.State.UserChannelPermissions(user.FluxerID, channelIDStr)
 		if err == nil && perms&fluxergo.PermissionViewChannel == 0 {
 			continue
 		}
@@ -562,7 +562,7 @@ func (dma *DirectMediaAPI) DownloadMedia(w http.ResponseWriter, r *http.Request)
 	if !isNewFederation && vars["serverName"] != dma.cfg.ServerName {
 		jsonResponse(w, http.StatusNotFound, &mautrix.RespError{
 			ErrCode: mautrix.MNotFound.ErrCode,
-			Err:     fmt.Sprintf("This is a Discord media proxy for %q, other media downloads are not available here", dma.cfg.ServerName),
+			Err:     fmt.Sprintf("This is a Fluxer media proxy for %q, other media downloads are not available here", dma.cfg.ServerName),
 		})
 		return
 	}
@@ -616,7 +616,7 @@ func (dma *DirectMediaAPI) DownloadMedia(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Proxy if the config allows proxying and the request doesn't allow redirects.
-	// In any other case, redirect to the Discord CDN.
+	// In any other case, redirect to the Fluxer CDN.
 	if dma.cfg.AllowProxy && r.URL.Query().Get("allow_redirect") != "true" {
 		dma.proxyDownload(ctx, w, url, vars["fileName"])
 		return
@@ -637,14 +637,14 @@ func (dma *DirectMediaAPI) DownloadMedia(w http.ResponseWriter, r *http.Request)
 func (dma *DirectMediaAPI) UploadNotSupported(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusNotImplemented, &mautrix.RespError{
 		ErrCode: mautrix.MUnrecognized.ErrCode,
-		Err:     "This bridge only supports proxying Discord media downloads and does not support media uploads.",
+		Err:     "This bridge only supports proxying Fluxer media downloads and does not support media uploads.",
 	})
 }
 
 func (dma *DirectMediaAPI) PreviewURLNotSupported(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusNotImplemented, &mautrix.RespError{
 		ErrCode: mautrix.MUnrecognized.ErrCode,
-		Err:     "This bridge only supports proxying Discord media downloads and does not support URL previews.",
+		Err:     "This bridge only supports proxying Fluxer media downloads and does not support URL previews.",
 	})
 }
 

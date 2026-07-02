@@ -25,10 +25,10 @@ func (tq *ThreadQuery) New() *Thread {
 	}
 }
 
-func (tq *ThreadQuery) GetByDiscordID(discordID string) *Thread {
+func (tq *ThreadQuery) GetByFluxerID(fluxerID string) *Thread {
 	query := threadSelect + " WHERE dcid=$1"
 
-	row := tq.db.QueryRow(query, discordID)
+	row := tq.db.QueryRow(query, fluxerID)
 	if row == nil {
 		return nil
 	}
@@ -65,14 +65,14 @@ type Thread struct {
 	ID       string
 	ParentID string
 
-	RootDiscordID string
-	RootMXID      id.EventID
+	RootFluxerID string
+	RootMXID     id.EventID
 
 	CreationNoticeMXID id.EventID
 }
 
 func (t *Thread) Scan(row dbutil.Scannable) *Thread {
-	err := row.Scan(&t.ID, &t.ParentID, &t.RootDiscordID, &t.RootMXID, &t.CreationNoticeMXID)
+	err := row.Scan(&t.ID, &t.ParentID, &t.RootFluxerID, &t.RootMXID, &t.CreationNoticeMXID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			t.log.Errorln("Database scan failed:", err)
@@ -85,7 +85,7 @@ func (t *Thread) Scan(row dbutil.Scannable) *Thread {
 
 func (t *Thread) Insert() {
 	query := "INSERT INTO thread (dcid, parent_chan_id, root_msg_dcid, root_msg_mxid, creation_notice_mxid) VALUES ($1, $2, $3, $4, $5)"
-	_, err := t.db.Exec(query, t.ID, t.ParentID, t.RootDiscordID, t.RootMXID, t.CreationNoticeMXID)
+	_, err := t.db.Exec(query, t.ID, t.ParentID, t.RootFluxerID, t.RootMXID, t.CreationNoticeMXID)
 	if err != nil {
 		t.log.Warnfln("Failed to insert %s@%s: %v", t.ID, t.ParentID, err)
 		panic(err)

@@ -29,7 +29,7 @@ import (
 	"go.mau.fi/mautrix-fluxer/database"
 )
 
-func downloadDiscordAttachment(cli *http.Client, url string, maxSize int64) ([]byte, error) {
+func downloadFluxerAttachment(cli *http.Client, url string, maxSize int64) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func downloadDiscordAttachment(cli *http.Client, url string, maxSize int64) ([]b
 	}
 }
 
-func uploadDiscordAttachment(cli *http.Client, url string, data []byte) error {
+func uploadFluxerAttachment(cli *http.Client, url string, data []byte) error {
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func uploadDiscordAttachment(cli *http.Client, url string, data []byte) error {
 		req.Header.Set(key, value)
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Referer", "https://discord.com/")
+	req.Header.Set("Referer", "https://fluxer.app/")
 	req.Header.Set("Sec-Fetch-Dest", "empty")
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
@@ -120,7 +120,7 @@ func downloadMatrixAttachment(intent *appservice.IntentAPI, content *event.Messa
 	return data, nil
 }
 
-func (br *DiscordBridge) uploadMatrixAttachment(intent *appservice.IntentAPI, data []byte, url string, encrypt bool, meta AttachmentMeta, semaWg *sync.WaitGroup) (*database.File, error) {
+func (br *FluxerBridge) uploadMatrixAttachment(intent *appservice.IntentAPI, data []byte, url string, encrypt bool, meta AttachmentMeta, semaWg *sync.WaitGroup) (*database.File, error) {
 	dbFile := br.DB.File.New()
 	dbFile.Timestamp = time.Now()
 	dbFile.URL = url
@@ -190,7 +190,7 @@ type attachmentKey struct {
 	Encrypt bool
 }
 
-func (br *DiscordBridge) convertLottie(data []byte) ([]byte, string, error) {
+func (br *FluxerBridge) convertLottie(data []byte) ([]byte, string, error) {
 	fps := br.Config.Bridge.AnimatedSticker.Args.FPS
 	width := br.Config.Bridge.AnimatedSticker.Args.Width
 	height := br.Config.Bridge.AnimatedSticker.Args.Height
@@ -217,7 +217,7 @@ func (br *DiscordBridge) convertLottie(data []byte) ([]byte, string, error) {
 	}
 
 	ctx := context.Background()
-	tempdir, err := os.MkdirTemp("", "mautrix_discord_lottie_")
+	tempdir, err := os.MkdirTemp("", "mautrix_fluxer_lottie_")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
@@ -268,7 +268,7 @@ func (br *DiscordBridge) convertLottie(data []byte) ([]byte, string, error) {
 	return data, outputMime, nil
 }
 
-func (br *DiscordBridge) copyAttachmentToMatrix(intent *appservice.IntentAPI, url string, encrypt bool, meta AttachmentMeta) (returnDBFile *database.File, returnErr error) {
+func (br *FluxerBridge) copyAttachmentToMatrix(intent *appservice.IntentAPI, url string, encrypt bool, meta AttachmentMeta) (returnDBFile *database.File, returnErr error) {
 	isCacheable := br.Config.Bridge.CacheMedia != "never" && (br.Config.Bridge.CacheMedia == "always" || !encrypt)
 	returnDBFile = br.DB.File.Get(url, encrypt)
 	if returnDBFile == nil {
@@ -300,7 +300,7 @@ func (br *DiscordBridge) copyAttachmentToMatrix(intent *appservice.IntentAPI, ur
 			}()
 
 			var data []byte
-			data, onceErr = downloadDiscordAttachment(http.DefaultClient, url, br.MediaConfig.UploadSize)
+			data, onceErr = downloadFluxerAttachment(http.DefaultClient, url, br.MediaConfig.UploadSize)
 			if onceErr != nil {
 				return
 			}
@@ -327,7 +327,7 @@ func (br *DiscordBridge) copyAttachmentToMatrix(intent *appservice.IntentAPI, ur
 	return
 }
 
-func (portal *Portal) getEmojiMXCByDiscordID(emojiID, name string, animated bool) id.ContentURI {
+func (portal *Portal) getEmojiMXCByFluxerID(emojiID, name string, animated bool) id.ContentURI {
 	mxc := portal.bridge.DMA.EmojiMXC(emojiID, name, animated)
 	if !mxc.IsEmpty() {
 		return mxc

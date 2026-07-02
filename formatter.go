@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2023 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ import (
 
 // escapeFixer is a hacky partial fix for the difference in escaping markdown, used with escapeReplacement
 //
-// Discord allows escaping with just one backslash, e.g. \__a__,
+// Fluxer allows escaping with just one backslash, e.g. \__a__,
 // but standard markdown requires both to be escaped (\_\_a__)
 var escapeFixer = regexp.MustCompile(`\\(__[^_]|\*\*[^*])`)
 
@@ -63,26 +63,26 @@ var removeFeaturesExceptLinks = []any{
 }
 var removeFeaturesAndLinks = append(removeFeaturesExceptLinks, parser.NewLinkParser())
 var fixIndentedParagraphs = goldmark.WithParserOptions(parser.WithBlockParsers(util.Prioritized(defaultIndentableParagraphParser, 500)))
-var discordExtensions = goldmark.WithExtensions(extension.Strikethrough, mdext.SimpleSpoiler, mdext.DiscordUnderline, ExtDiscordEveryone, ExtDiscordTag)
+var fluxerExtensions = goldmark.WithExtensions(extension.Strikethrough, mdext.SimpleSpoiler, mdext.DiscordUnderline, ExtFluxerEveryone, ExtFluxerTag)
 
-var discordRenderer = goldmark.New(
+var fluxerRenderer = goldmark.New(
 	goldmark.WithParser(mdext.ParserWithoutFeatures(removeFeaturesAndLinks...)),
-	fixIndentedParagraphs, format.HTMLOptions, discordExtensions,
+	fixIndentedParagraphs, format.HTMLOptions, fluxerExtensions,
 )
-var discordRendererWithInlineLinks = goldmark.New(
+var fluxerRendererWithInlineLinks = goldmark.New(
 	goldmark.WithParser(mdext.ParserWithoutFeatures(removeFeaturesExceptLinks...)),
-	fixIndentedParagraphs, format.HTMLOptions, discordExtensions,
+	fixIndentedParagraphs, format.HTMLOptions, fluxerExtensions,
 )
 
-func (portal *Portal) renderDiscordMarkdownOnlyHTMLNoUnwrap(text string, allowInlineLinks bool) string {
+func (portal *Portal) renderFluxerMarkdownOnlyHTMLNoUnwrap(text string, allowInlineLinks bool) string {
 	text = escapeFixer.ReplaceAllStringFunc(text, escapeReplacement)
 
 	var buf strings.Builder
 	ctx := parser.NewContext()
 	ctx.Set(parserContextPortal, portal)
-	renderer := discordRenderer
+	renderer := fluxerRenderer
 	if allowInlineLinks {
-		renderer = discordRendererWithInlineLinks
+		renderer = fluxerRendererWithInlineLinks
 	}
 	err := renderer.Convert([]byte(text), &buf, parser.WithContext(ctx))
 	if err != nil {
@@ -91,14 +91,14 @@ func (portal *Portal) renderDiscordMarkdownOnlyHTMLNoUnwrap(text string, allowIn
 	return buf.String()
 }
 
-func (portal *Portal) renderDiscordMarkdownOnlyHTML(text string, allowInlineLinks bool) string {
-	return format.UnwrapSingleParagraph(portal.renderDiscordMarkdownOnlyHTMLNoUnwrap(text, allowInlineLinks))
+func (portal *Portal) renderFluxerMarkdownOnlyHTML(text string, allowInlineLinks bool) string {
+	return format.UnwrapSingleParagraph(portal.renderFluxerMarkdownOnlyHTMLNoUnwrap(text, allowInlineLinks))
 }
 
-const formatterContextPortalKey = "fi.mau.discord.portal"
-const formatterContextAllowedMentionsKey = "fi.mau.discord.allowed_mentions"
-const formatterContextInputAllowedMentionsKey = "fi.mau.discord.input_allowed_mentions"
-const formatterContextInputAllowedLinkPreviewsKey = "fi.mau.discord.input_allowed_link_previews"
+const formatterContextPortalKey = "fi.mau.fluxer.portal"
+const formatterContextAllowedMentionsKey = "fi.mau.fluxer.allowed_mentions"
+const formatterContextInputAllowedMentionsKey = "fi.mau.fluxer.input_allowed_mentions"
+const formatterContextInputAllowedLinkPreviewsKey = "fi.mau.fluxer.input_allowed_link_previews"
 
 func appendIfNotContains(arr []string, newItem string) []string {
 	for _, item := range arr {
@@ -109,7 +109,7 @@ func appendIfNotContains(arr []string, newItem string) []string {
 	return append(arr, newItem)
 }
 
-func (br *DiscordBridge) pillConverter(displayname, mxid, eventID string, ctx format.Context) string {
+func (br *FluxerBridge) pillConverter(displayname, mxid, eventID string, ctx format.Context) string {
 	if len(mxid) == 0 {
 		return displayname
 	}
@@ -137,7 +137,7 @@ func (br *DiscordBridge) pillConverter(displayname, mxid, eventID string, ctx fo
 				if guildID == "" {
 					guildID = "@me"
 				}
-				return fmt.Sprintf("https://discord.com/channels/%s/%s/%s", guildID, msg.DiscordProtoChannelID(), msg.DiscordID)
+				return fmt.Sprintf("https://fluxer.app/channels/%s/%s/%s", guildID, msg.FluxerProtoChannelID(), msg.FluxerID)
 			}
 		}
 	} else if mxid[0] == '@' {
@@ -152,24 +152,24 @@ func (br *DiscordBridge) pillConverter(displayname, mxid, eventID string, ctx fo
 			return fmt.Sprintf("<@%s>", parsedID)
 		}
 		mentionedUser := br.GetUserByMXID(id.UserID(mxid))
-		if mentionedUser != nil && mentionedUser.DiscordID != "" {
-			mentions.Users = appendIfNotContains(mentions.Users, mentionedUser.DiscordID)
-			return fmt.Sprintf("<@%s>", mentionedUser.DiscordID)
+		if mentionedUser != nil && mentionedUser.FluxerID != "" {
+			mentions.Users = appendIfNotContains(mentions.Users, mentionedUser.FluxerID)
+			return fmt.Sprintf("<@%s>", mentionedUser.FluxerID)
 		}
 	}
 	return displayname
 }
 
-const discordLinkPattern = `https?://[^<\p{Zs}\x{feff}]*[^"'),.:;\]\p{Zs}\x{feff}]`
+const fluxerLinkPattern = `https?://[^<\p{Zs}\x{feff}]*[^"'),.:;\]\p{Zs}\x{feff}]`
 
-// Discord links start with http:// or https://, contain at least two characters afterwards,
+// Fluxer links start with http:// or https://, contain at least two characters afterwards,
 // don't contain < or whitespace anywhere, and don't end with "'),.:;]
 //
 // Zero-width whitespace is mostly in the Format category and is allowed, except \uFEFF isn't for some reason
-var discordLinkRegex = regexp.MustCompile(discordLinkPattern)
-var discordLinkRegexFull = regexp.MustCompile("^" + discordLinkPattern + "$")
+var fluxerLinkRegex = regexp.MustCompile(fluxerLinkPattern)
+var fluxerLinkRegexFull = regexp.MustCompile("^" + fluxerLinkPattern + "$")
 
-var discordMarkdownEscaper = strings.NewReplacer(
+var fluxerMarkdownEscaper = strings.NewReplacer(
 	`\`, `\\`,
 	`_`, `\_`,
 	`*`, `\*`,
@@ -180,21 +180,21 @@ var discordMarkdownEscaper = strings.NewReplacer(
 	`#`, `\#`,
 )
 
-func escapeDiscordMarkdown(s string) string {
-	submatches := discordLinkRegex.FindAllStringIndex(s, -1)
+func escapeFluxerMarkdown(s string) string {
+	submatches := fluxerLinkRegex.FindAllStringIndex(s, -1)
 	if submatches == nil {
-		return discordMarkdownEscaper.Replace(s)
+		return fluxerMarkdownEscaper.Replace(s)
 	}
 	var builder strings.Builder
 	offset := 0
 	for _, match := range submatches {
 		start := match[0]
 		end := match[1]
-		builder.WriteString(discordMarkdownEscaper.Replace(s[offset:start]))
+		builder.WriteString(fluxerMarkdownEscaper.Replace(s[offset:start]))
 		builder.WriteString(s[start:end])
 		offset = end
 	}
-	builder.WriteString(discordMarkdownEscaper.Replace(s[offset:]))
+	builder.WriteString(fluxerMarkdownEscaper.Replace(s[offset:]))
 	return builder.String()
 }
 
@@ -213,7 +213,7 @@ var matrixHTMLParser = &format.HTMLParser{
 			// If we're in a code block, don't escape markdown
 			return s
 		}
-		return escapeDiscordMarkdown(s)
+		return escapeFluxerMarkdown(s)
 	},
 	SpoilerConverter: func(text, reason string, ctx format.Context) string {
 		if reason != "" {
@@ -229,12 +229,12 @@ var matrixHTMLParser = &format.HTMLParser{
 				return fmt.Sprintf("<%s>", text)
 			}
 			return text
-		} else if !discordLinkRegexFull.MatchString(href) {
-			return fmt.Sprintf("%s (%s)", escapeDiscordMarkdown(text), escapeDiscordMarkdown(href))
+		} else if !fluxerLinkRegexFull.MatchString(href) {
+			return fmt.Sprintf("%s (%s)", escapeFluxerMarkdown(text), escapeFluxerMarkdown(href))
 		} else if !allowPreview {
-			return fmt.Sprintf("[%s](<%s>)", escapeDiscordMarkdown(text), href)
+			return fmt.Sprintf("[%s](<%s>)", escapeFluxerMarkdown(text), href)
 		} else {
-			return fmt.Sprintf("[%s](%s)", escapeDiscordMarkdown(text), href)
+			return fmt.Sprintf("[%s](%s)", escapeFluxerMarkdown(text), href)
 		}
 	},
 }
@@ -255,6 +255,6 @@ func (portal *Portal) parseMatrixHTML(content *event.MessageEventContent, allowe
 		}
 		return variationselector.FullyQualify(matrixHTMLParser.Parse(content.FormattedBody, ctx)), allowedMentions
 	} else {
-		return variationselector.FullyQualify(escapeDiscordMarkdown(content.Body)), allowedMentions
+		return variationselector.FullyQualify(escapeFluxerMarkdown(content.Body)), allowedMentions
 	}
 }

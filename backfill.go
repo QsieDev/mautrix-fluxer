@@ -87,21 +87,21 @@ func (portal *Portal) ForwardBackfillMissed(source *User, serverLastMessageID st
 	if lastMessage == nil || serverLastMessageID == "" {
 		log.Debug().Msg("Not backfilling, no last message in database or no last message in metadata")
 		return
-	} else if !shouldBackfill(lastMessage.DiscordID, serverLastMessageID) {
+	} else if !shouldBackfill(lastMessage.FluxerID, serverLastMessageID) {
 		log.Debug().
-			Str("last_bridged_message", lastMessage.DiscordID).
+			Str("last_bridged_message", lastMessage.FluxerID).
 			Str("last_server_message", serverLastMessageID).
 			Msg("Not backfilling, last message in database is newer than last message in metadata")
 		return
 	}
 	log.Debug().
-		Str("last_bridged_message", lastMessage.DiscordID).
+		Str("last_bridged_message", lastMessage.FluxerID).
 		Str("last_server_message", serverLastMessageID).
 		Msg("Backfilling missed messages")
 	if limit < 0 {
-		portal.backfillUnlimitedMissed(log, source, lastMessage.DiscordID, thread)
+		portal.backfillUnlimitedMissed(log, source, lastMessage.FluxerID, thread)
 	} else {
-		portal.backfillLimited(log, source, limit, lastMessage.DiscordID, thread)
+		portal.backfillLimited(log, source, limit, lastMessage.FluxerID, thread)
 	}
 }
 
@@ -209,7 +209,7 @@ func (portal *Portal) sendBackfillBatch(log zerolog.Logger, source *User, messag
 	} else {
 		log.Debug().Msg("Not using hungryserv, sending messages one by one")
 		for _, msg := range messages {
-			portal.handleDiscordMessageCreate(source, msg, thread)
+			portal.handleFluxerMessageCreate(source, msg, thread)
 		}
 	}
 }
@@ -241,10 +241,10 @@ func (portal *Portal) forwardBatchSend(log zerolog.Logger, source *User, message
 }
 
 func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, messages []*fluxergo.Message, thread *Thread) ([]*event.Event, []*fluxergo.Message, []database.Message) {
-	var discordThreadID string
+	var fluxerThreadID string
 	var threadRootEvent, lastThreadEvent id.EventID
 	if thread != nil {
-		discordThreadID = thread.ID
+		fluxerThreadID = thread.ID
 		threadRootEvent = thread.RootMXID
 		lastThreadEvent = threadRootEvent
 		lastInThread := portal.bridge.DB.Message.GetLastInThread(portal.Key, thread.ID)
@@ -266,8 +266,8 @@ func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, mess
 		puppet := portal.bridge.GetPuppetByID(msg.Author.ID)
 		puppet.UpdateInfo(source, msg.Author, msg)
 		intent := puppet.IntentFor(portal)
-		replyTo := portal.getReplyTarget(source, discordThreadID, msg.MessageReference, msg.Embeds, true)
-		mentions := portal.convertDiscordMentions(msg, false)
+		replyTo := portal.getReplyTarget(source, fluxerThreadID, msg.MessageReference, msg.Embeds, true)
+		mentions := portal.convertFluxerMentions(msg, false)
 
 		ts, _ := fluxergo.SnowflakeTimestamp(msg.ID)
 		log := log.With().
@@ -275,7 +275,7 @@ func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, mess
 			Int("message_type", int(msg.Type)).
 			Str("author_id", msg.Author.ID).
 			Logger()
-		parts := portal.convertDiscordMessage(log.WithContext(ctx), puppet, intent, msg)
+		parts := portal.convertFluxerMessage(log.WithContext(ctx), puppet, intent, msg)
 		for i, part := range parts {
 			if (replyTo != nil || threadRootEvent != "") && part.Content.RelatesTo == nil {
 				part.Content.RelatesTo = &event.RelatesTo{}
@@ -319,7 +319,7 @@ func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, mess
 			evts = append(evts, evt)
 			dbMessages = append(dbMessages, database.Message{
 				Channel:      portal.Key,
-				DiscordID:    msg.ID,
+				FluxerID:     msg.ID,
 				SenderID:     msg.Author.ID,
 				Timestamp:    ts,
 				AttachmentID: part.AttachmentID,
@@ -337,12 +337,12 @@ func (portal *Portal) convertMessageBatch(log zerolog.Logger, source *User, mess
 }
 
 func (portal *Portal) deterministicEventID(messageID, partName string) id.EventID {
-	data := fmt.Sprintf("%s/discord/%s/%s", portal.MXID, messageID, partName)
+	data := fmt.Sprintf("%s/fluxer/%s/%s", portal.MXID, messageID, partName)
 	sum := sha256.Sum256([]byte(data))
-	return id.EventID(fmt.Sprintf("$%s:discord.com", base64.RawURLEncoding.EncodeToString(sum[:])))
+	return id.EventID(fmt.Sprintf("$%s:fluxer.app", base64.RawURLEncoding.EncodeToString(sum[:])))
 }
 
-// compareMessageIDs compares two Discord message IDs.
+// compareMessageIDs compares two Fluxer message IDs.
 //
 // If the first ID is lower, -1 is returned.
 // If the second ID is lower, 1 is returned.

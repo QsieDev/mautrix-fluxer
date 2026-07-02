@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2022 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -55,7 +55,7 @@ type BridgeConfig struct {
 	FederateRooms               bool `yaml:"federate_rooms"`
 	PrefixWebhookMessages       bool `yaml:"prefix_webhook_messages"`
 	EnableWebhookAvatars        bool `yaml:"enable_webhook_avatars"`
-	UseDiscordCDNUpload         bool `yaml:"use_discord_cdn_upload"`
+	UseFluxerCDNUpload          bool `yaml:"use_fluxer_cdn_upload"`
 	ForbidDMingStrangers        bool `yaml:"forbid_dming_strangers"`
 
 	Proxy string `yaml:"proxy"`

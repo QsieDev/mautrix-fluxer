@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2023 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -62,7 +62,7 @@ func DoUpgrade(helper *up.Helper) {
 	helper.Copy(up.Bool, "bridge", "federate_rooms")
 	helper.Copy(up.Bool, "bridge", "prefix_webhook_messages")
 	helper.Copy(up.Bool, "bridge", "enable_webhook_avatars")
-	helper.Copy(up.Bool, "bridge", "use_discord_cdn_upload")
+	helper.Copy(up.Bool, "bridge", "use_fluxer_cdn_upload")
 	helper.Copy(up.Bool, "bridge", "forbid_dming_strangers")
 	helper.Copy(up.Str|up.Null, "bridge", "proxy")
 	helper.Copy(up.Str, "bridge", "cache_media")

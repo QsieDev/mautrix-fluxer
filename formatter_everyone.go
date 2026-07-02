@@ -1,4 +1,4 @@
-// mautrix-discord - A Matrix-Discord puppeting bridge.
+// mautrix-fluxer - A Matrix-Fluxer puppeting bridge.
 // Copyright (C) 2023 Tulir Asokan
 //
 // This program is free software: you can redistribute it and/or modify
@@ -28,83 +28,83 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-type astDiscordEveryone struct {
+type astFluxerEveryone struct {
 	ast.BaseInline
 	onlyHere bool
 }
 
-var _ ast.Node = (*astDiscordEveryone)(nil)
-var astKindDiscordEveryone = ast.NewNodeKind("DiscordEveryone")
+var _ ast.Node = (*astFluxerEveryone)(nil)
+var astKindFluxerEveryone = ast.NewNodeKind("FluxerEveryone")
 
-func (n *astDiscordEveryone) Dump(source []byte, level int) {
+func (n *astFluxerEveryone) Dump(source []byte, level int) {
 	ast.DumpHelper(n, source, level, nil, nil)
 }
 
-func (n *astDiscordEveryone) Kind() ast.NodeKind {
-	return astKindDiscordEveryone
+func (n *astFluxerEveryone) Kind() ast.NodeKind {
+	return astKindFluxerEveryone
 }
 
-func (n *astDiscordEveryone) String() string {
+func (n *astFluxerEveryone) String() string {
 	if n.onlyHere {
 		return "@here"
 	}
 	return "@everyone"
 }
 
-type discordEveryoneParser struct{}
+type fluxerEveryoneParser struct{}
 
-var discordEveryoneRegex = regexp.MustCompile(`@(everyone|here)`)
-var defaultDiscordEveryoneParser = &discordEveryoneParser{}
+var fluxerEveryoneRegex = regexp.MustCompile(`@(everyone|here)`)
+var defaultFluxerEveryoneParser = &fluxerEveryoneParser{}
 
-func (s *discordEveryoneParser) Trigger() []byte {
+func (s *fluxerEveryoneParser) Trigger() []byte {
 	return []byte{'@'}
 }
 
-func (s *discordEveryoneParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
+func (s *fluxerEveryoneParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
 	line, _ := block.PeekLine()
-	match := discordEveryoneRegex.FindSubmatch(line)
+	match := fluxerEveryoneRegex.FindSubmatch(line)
 	if match == nil {
 		return nil
 	}
 	block.Advance(len(match[0]))
-	return &astDiscordEveryone{
+	return &astFluxerEveryone{
 		onlyHere: string(match[1]) == "here",
 	}
 }
 
-func (s *discordEveryoneParser) CloseBlock(parent ast.Node, pc parser.Context) {
+func (s *fluxerEveryoneParser) CloseBlock(parent ast.Node, pc parser.Context) {
 	// nothing to do
 }
 
-type discordEveryoneHTMLRenderer struct{}
+type fluxerEveryoneHTMLRenderer struct{}
 
-func (r *discordEveryoneHTMLRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
-	reg.Register(astKindDiscordEveryone, r.renderDiscordEveryone)
+func (r *fluxerEveryoneHTMLRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
+	reg.Register(astKindFluxerEveryone, r.renderFluxerEveryone)
 }
 
-func (r *discordEveryoneHTMLRenderer) renderDiscordEveryone(w util.BufWriter, source []byte, n ast.Node, entering bool) (status ast.WalkStatus, err error) {
+func (r *fluxerEveryoneHTMLRenderer) renderFluxerEveryone(w util.BufWriter, source []byte, n ast.Node, entering bool) (status ast.WalkStatus, err error) {
 	status = ast.WalkContinue
 	if !entering {
 		return
 	}
-	mention, _ := n.(*astDiscordEveryone)
+	mention, _ := n.(*astFluxerEveryone)
 	class := "everyone"
 	if mention != nil && mention.onlyHere {
 		class = "here"
 	}
-	_, _ = fmt.Fprintf(w, `<span class="discord-mention-%s">@room</span>`, class)
+	_, _ = fmt.Fprintf(w, `<span class="fluxer-mention-%s">@room</span>`, class)
 	return
 }
 
-type discordEveryone struct{}
+type fluxerEveryone struct{}
 
-var ExtDiscordEveryone = &discordEveryone{}
+var ExtFluxerEveryone = &fluxerEveryone{}
 
-func (e *discordEveryone) Extend(m goldmark.Markdown) {
+func (e *fluxerEveryone) Extend(m goldmark.Markdown) {
 	m.Parser().AddOptions(parser.WithInlineParsers(
-		util.Prioritized(defaultDiscordEveryoneParser, 600),
+		util.Prioritized(defaultFluxerEveryoneParser, 600),
 	))
 	m.Renderer().AddOptions(renderer.WithNodeRenderers(
-		util.Prioritized(&discordEveryoneHTMLRenderer{}, 600),
+		util.Prioritized(&fluxerEveryoneHTMLRenderer{}, 600),
 	))
 }
