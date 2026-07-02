@@ -26,6 +26,8 @@ import (
 func DoUpgrade(helper *up.Helper) {
 	bridgeconfig.Upgrader.DoUpgrade(helper)
 
+	helper.Copy(up.Str|up.Null, "bridge", "api_url")
+	helper.Copy(up.Str|up.Null, "bridge", "cdn_url")
 	helper.Copy(up.Str, "bridge", "username_template")
 	helper.Copy(up.Str, "bridge", "displayname_template")
 	helper.Copy(up.Str, "bridge", "channel_name_template")

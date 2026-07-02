@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/qsiedev/fluxergo"
+
 	"go.mau.fi/util/configupgrade"
 	"go.mau.fi/util/exsync"
 	"golang.org/x/sync/semaphore"
@@ -94,6 +96,8 @@ func (br *FluxerBridge) GetConfigPtr() interface{} {
 }
 
 func (br *FluxerBridge) Init() {
+	fluxergo.SetBaseURL(br.Config.Bridge.APIURL, br.Config.Bridge.CDNURL)
+
 	br.CommandProcessor = commands.NewProcessor(&br.Bridge)
 	br.RegisterCommands()
 	br.EventProcessor.On(event.StateTombstone, br.HandleTombstone)
@@ -185,7 +189,7 @@ func main() {
 	}
 	br.Bridge = bridge.Bridge{
 		Name:              "mautrix-fluxer",
-		URL:               "https://github.com/mautrix/fluxer",
+		URL:               "https://github.com/qsiedev/mautrix-fluxer",
 		Description:       "A Matrix-Fluxer puppeting bridge.",
 		Version:           "0.7.6",
 		ProtocolName:      "Fluxer",

@@ -28,6 +28,9 @@ import (
 )
 
 type BridgeConfig struct {
+	APIURL string `yaml:"api_url"`
+	CDNURL string `yaml:"cdn_url"`
+
 	UsernameTemplate          string `yaml:"username_template"`
 	DisplaynameTemplate       string `yaml:"displayname_template"`
 	ChannelNameTemplate       string `yaml:"channel_name_template"`

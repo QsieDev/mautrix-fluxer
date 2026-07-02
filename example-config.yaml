@@ -78,6 +78,12 @@ appservice:
 
 # Bridge config
 bridge:
+    # Base URL of the Fluxer REST API to connect to. Leave empty to use the
+    # default public instance (https://api.fluxer.app/v1/).
+    api_url:
+    # Base URL of the Fluxer media CDN to connect to. Leave empty to use the
+    # default public instance (https://media.fluxer.app/).
+    cdn_url:
     # Localpart template of MXIDs for Discord users.
     # {{.}} is replaced with the internal ID of the Discord user.
     username_template: discord_{{.}}
