@@ -800,15 +800,13 @@ func (user *User) readyHandler(r *fluxergo.Ready) {
 	}
 	user.PrunePortalList(updateTS)
 
-	if r.ReadState != nil && r.ReadState.Version > user.ReadStateVersion {
-		// TODO can we figure out which read states are actually new?
-		for _, entry := range r.ReadState.Entries {
+	if len(r.ReadState) > 0 {
+		for _, entry := range r.ReadState {
 			user.messageAckHandler(&fluxergo.MessageAck{
 				MessageID: string(entry.LastMessageID),
 				ChannelID: entry.ID,
 			})
 		}
-		user.ReadStateVersion = r.ReadState.Version
 		user.Update()
 	}
 
