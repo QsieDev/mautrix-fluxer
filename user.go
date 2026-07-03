@@ -817,27 +817,9 @@ func (user *User) readyHandler(r *fluxergo.Ready) {
 	user.BridgeState.Send(status.BridgeState{StateEvent: status.StateConnected})
 }
 
-func (user *User) subscribeGuilds(delay time.Duration) {
-	if !user.Session.IsUser {
-		return
-	}
-	for _, guildMeta := range user.Session.State.Guilds {
-		guild := user.bridge.GetGuildByID(guildMeta.ID, false)
-		if guild != nil && guild.MXID != "" {
-			user.log.Debug().Str("guild_id", guild.ID).Msg("Subscribing to guild")
-			dat := fluxergo.GuildSubscribeData{
-				GuildID:    guild.ID,
-				Typing:     true,
-				Activities: true,
-				Threads:    true,
-			}
-			err := user.Session.SubscribeGuild(dat)
-			if err != nil {
-				user.log.Warn().Err(err).Str("guild_id", guild.ID).Msg("Failed to subscribe to guild")
-			}
-			time.Sleep(delay)
-		}
-	}
+func (user *User) subscribeGuilds(_ time.Duration) {
+	// Fluxer does not implement Discord's Op 14 guild-subscription mechanism;
+	// events for all guilds are delivered automatically after READY.
 }
 
 func (user *User) resumeHandler(_ *fluxergo.Resumed) {
@@ -1526,19 +1508,6 @@ func (user *User) bridgeGuild(guildID string, everything bool) error {
 		guild.BridgingMode = database.GuildBridgeCreateOnMessage
 	}
 	guild.Update()
-
-	if user.Session.IsUser {
-		log.Debug().Msg("Subscribing to guild after bridging")
-		err = user.Session.SubscribeGuild(fluxergo.GuildSubscribeData{
-			GuildID:    guild.ID,
-			Typing:     true,
-			Activities: true,
-			Threads:    true,
-		})
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to subscribe to guild")
-		}
-	}
 
 	return nil
 }
