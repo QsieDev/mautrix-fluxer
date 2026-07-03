@@ -29,6 +29,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/qsiedev/fluxergo v0.0.0-20260702195732-af509e475267 h1:9E8yUtLW1b1xA78RP6ktRBG2SHGheJ1/mWfQG8kduow=
 github.com/qsiedev/fluxergo v0.0.0-20260702195732-af509e475267/go.mod h1:QvOU+mEOPVPb2TMcC/I/L4DS3/hu2ZzUL3RuyzlCrEg=
+github.com/qsiedev/fluxergo v0.0.0-20260703003802-a89e14a06b0b h1:9zhTIfOtrU/C/KganNGDpLFT92uR1pVt4vAMiuYY2nQ=
+github.com/qsiedev/fluxergo v0.0.0-20260703003802-a89e14a06b0b/go.mod h1:csNt1QWmOJ4efDnC3EwVEpdeTzEpcnp2hj/ntfgGiWM=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
 github.com/rs/zerolog v1.34.0 h1:k43nTLIwcTVQAncfCw4KZ2VY6ukYoZaBPNOE8txlOeY=
 github.com/rs/zerolog v1.34.0/go.mod h1:bJsvje4Z08ROH4Nhs5iH600c3IkWhwp44iRc54W6wYQ=
