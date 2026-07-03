@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"html"
@@ -95,38 +94,6 @@ var cmdLoginToken = &commands.FullHandler{
 	},
 }
 
-const fluxerTokenEpoch = 1293840000
-
-func decodeToken(token string) (userID int64, err error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		err = fmt.Errorf("invalid number of parts in token")
-		return
-	}
-	var userIDStr []byte
-	userIDStr, err = base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
-		err = fmt.Errorf("invalid base64 in user ID part: %w", err)
-		return
-	}
-	_, err = base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		err = fmt.Errorf("invalid base64 in random part: %w", err)
-		return
-	}
-	_, err = base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
-		err = fmt.Errorf("invalid base64 in checksum part: %w", err)
-		return
-	}
-	userID, err = strconv.ParseInt(string(userIDStr), 10, 64)
-	if err != nil {
-		err = fmt.Errorf("invalid number in decoded user ID part: %w", err)
-		return
-	}
-	return
-}
-
 func fnLoginToken(ce *WrappedCommandEvent) {
 	if len(ce.Args) != 2 {
 		ce.Reply("**Usage**: `$cmdprefix login-token <user/bot/oauth> <token>`")
@@ -139,11 +106,6 @@ func fnLoginToken(ce *WrappedCommandEvent) {
 		return
 	}
 	token := ce.Args[1]
-	userID, err := decodeToken(token)
-	if err != nil {
-		ce.Reply("Invalid token")
-		return
-	}
 	switch strings.ToLower(ce.Args[0]) {
 	case "user":
 		// Token is used as-is
@@ -155,8 +117,7 @@ func fnLoginToken(ce *WrappedCommandEvent) {
 		ce.Reply("Token type must be `user`, `bot` or `oauth`")
 		return
 	}
-	ce.Reply("Connecting to Fluxer as user ID %d", userID)
-	if err = ce.User.Login(token); err != nil {
+	if err := ce.User.Login(token); err != nil {
 		ce.Reply("Error connecting to Fluxer: %v", err)
 		return
 	}
