@@ -622,13 +622,6 @@ func (user *User) Connect() error {
 	}
 	session.EventHandler = user.eventHandlerSync
 
-	if session.IsUser {
-		err = session.LoadMainPage(context.TODO())
-		if err != nil {
-			user.log.Warn().Err(err).Msg("Failed to load main page")
-		}
-	}
-
 	user.Session = session
 
 	for {
