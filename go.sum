@@ -33,6 +33,8 @@ github.com/qsiedev/fluxergo v0.0.0-20260703003802-a89e14a06b0b h1:9zhTIfOtrU/C/K
 github.com/qsiedev/fluxergo v0.0.0-20260703003802-a89e14a06b0b/go.mod h1:csNt1QWmOJ4efDnC3EwVEpdeTzEpcnp2hj/ntfgGiWM=
 github.com/qsiedev/fluxergo v0.0.0-20260703005216-ad571e58914c h1:Y1w0KffS4i+3E/ZcBieaR6sl/YRAXA458x+BH8TYwf8=
 github.com/qsiedev/fluxergo v0.0.0-20260703005216-ad571e58914c/go.mod h1:csNt1QWmOJ4efDnC3EwVEpdeTzEpcnp2hj/ntfgGiWM=
+github.com/qsiedev/fluxergo v0.0.0-20260703005559-ea8597ce948e h1:2Ch4RY9qzboxr1I4dQXgefdVkDiGqnd55skWs6Rs/o0=
+github.com/qsiedev/fluxergo v0.0.0-20260703005559-ea8597ce948e/go.mod h1:csNt1QWmOJ4efDnC3EwVEpdeTzEpcnp2hj/ntfgGiWM=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
 github.com/rs/zerolog v1.34.0 h1:k43nTLIwcTVQAncfCw4KZ2VY6ukYoZaBPNOE8txlOeY=
 github.com/rs/zerolog v1.34.0/go.mod h1:bJsvje4Z08ROH4Nhs5iH600c3IkWhwp44iRc54W6wYQ=
